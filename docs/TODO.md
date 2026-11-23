@@ -122,6 +122,13 @@
 - [x] Mock WebSocket-сервер и тесты обрыва/401/429/reconnect (был пункт этапа 5)
 - [ ] Тесты UI/онбординга (нужен XCUITest или снапшоты), тест `SystemAudioTap`/`MicCapture` на железе (нельзя в CI)
 
+## Репозиторий / README
+
+- [x] Публичный репозиторий https://github.com/alexey-a-abramov/subveil, README на английском
+- [ ] Скриншоты в README (`docs/images/`): перевод в субтитрах (оригинал + English), переключение System/Mic/Both в HUD, раскрытый HUD, настройки внешнего вида
+- [ ] Лицензия (решение владельца: MIT / Apache-2.0 / другая) — без неё репозиторий формально «all rights reserved»
+- [ ] CI (GitHub Actions, macOS runner: `swift test`)
+
 ## Журнал
 
 - 2026-11-23 — найдена причина «API key required»: запись, созданная `security add-generic-password`, требует диалога доступа Keychain; чтение на старте блокировало приложение. Чтение ключа вынесено с main-потока, наличие ключа проверяется без диалога. Сборка подписывается Apple Development-сертификатом (стабильные Keychain/TCC-разрешения).
