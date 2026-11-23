@@ -51,12 +51,12 @@ public final class CaptionsEngine {
     public let settings: SettingsStore
     public let store: TranscriptStore
 
-    public private(set) var runState: RunState = .idle
+    public internal(set) var runState: RunState = .idle
     /// Connection state per stream (system / mic / mixed).
-    public private(set) var conn: [SourceKind: ConnState] = [:]
+    public internal(set) var conn: [SourceKind: ConnState] = [:]
     /// 0…1 level per physical source.
     public private(set) var levels: [SourceKind: Float] = [:]
-    public private(set) var elapsed: TimeInterval = 0
+    public internal(set) var elapsed: TimeInterval = 0
     public private(set) var estimatedCost: Double = 0
     public private(set) var lastError: String?
     public private(set) var needsKey = false

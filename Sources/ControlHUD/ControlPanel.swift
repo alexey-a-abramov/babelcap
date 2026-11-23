@@ -17,9 +17,9 @@ public final class ControlPanelController {
     private var idleTask: Task<Void, Never>?
     private let engine: CaptionsEngine
 
-    static let normal = NSSize(width: 470, height: 56)
-    static let expanded = NSSize(width: 470, height: 540)
-    static let compact = NSSize(width: 150, height: 40)
+    static let normal = NSSize(width: 510, height: 56)
+    static let expanded = NSSize(width: 510, height: 540)
+    static let compact = NSSize(width: 200, height: 40)
 
     public init(settings: SettingsStore, engine: CaptionsEngine, store: TranscriptStore, actions: HUDActions) {
         self.engine = engine

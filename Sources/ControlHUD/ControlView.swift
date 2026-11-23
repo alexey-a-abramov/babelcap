@@ -261,7 +261,7 @@ public struct ControlView: View {
             Button { actions.toggleEditing(); hud.touch() } label: {
                 Image(systemName: settings.profile.layout.clickThrough ? "lock.fill" : "lock.open.fill")
             }.help(settings.profile.layout.clickThrough
-                   ? "Subtitles are click-through. Click to make them movable / resizable"
+                   ? "Subtitles are click-through (hold ⌘ to drag them anyway). Click to make them movable / resizable"
                    : "Subtitles can be dragged and resized. Click to make them click-through")
             Spacer()
         }
@@ -378,8 +378,10 @@ struct StatusBadge: View {
             if runState != .idle {
                 Text(Self.short(elapsed)).font(.system(size: 12, weight: .medium).monospacedDigit())
                     .foregroundStyle(runState == .paused ? .orange : .primary)
+                    .lineLimit(1)
             }
         }
+        .fixedSize()                     // never squeeze the timer into a column
         .frame(minWidth: 22, alignment: .leading)
         .help(helpText)
         .onAppear { pulse = true }
@@ -508,7 +510,7 @@ struct IconButton: View {
                 .font(.system(size: 11, weight: .bold))
                 .rotationEffect(.degrees(rotation))
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(highlighted ? Color.orange.opacity(hover ? 0.95 : 0.8) : .white.opacity(hover ? 0.18 : 0.08)))
+                .background(Circle().fill(highlighted ? Color.accentColor.opacity(hover ? 0.95 : 0.8) : .white.opacity(hover ? 0.18 : 0.08)))
                 .foregroundStyle(highlighted ? .white : (hover ? .primary : .secondary))
         }
         .buttonStyle(.plain)

@@ -53,6 +53,17 @@ final class HUDLayoutTests: XCTestCase {
         XCTAssertEqual(size.width, ControlPanelController.normal.width)
         let natural = render(view.fixedSize(), name: "hud-natural")
         XCTAssertLessThanOrEqual(natural.width, ControlPanelController.normal.width, "header content wider than the HUD panel")
+
+        // Running for over an hour: timer + pause + stop + subtitles-hidden button — the widest header.
+        engine.runState = .running
+        engine.elapsed = 3 * 3600 + 25 * 60 + 7
+        engine.conn[.system] = .live
+        settings.profile.layout.showSubtitles = false
+        let running = render(view.fixedSize(), name: "hud-running-natural")
+        print("HUD natural width while running: \(running.width)")
+        XCTAssertLessThanOrEqual(running.width, ControlPanelController.normal.width, "running header wider than the HUD panel")
+        _ = render(view.frame(width: ControlPanelController.normal.width, height: 56), name: "hud-running")
+        engine.runState = .idle
     }
 
     func testCaptionPanelKeepsItsSizeAndShowsOnlyTargetLanguage() throws {
