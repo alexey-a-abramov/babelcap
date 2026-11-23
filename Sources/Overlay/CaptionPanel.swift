@@ -4,6 +4,11 @@ import SonioxClient
 import SwiftUI
 import Transcript
 
+/// Hosting view that reacts to the very first click even though the panel never becomes key.
+final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 public final class CaptionPanel: NSPanel {
     override public var canBecomeKey: Bool { false }
     override public var canBecomeMain: Bool { false }
@@ -17,7 +22,7 @@ public final class CaptionPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
-        isMovableByWindowBackground = true
+        isMovableByWindowBackground = false   // moving is done by our own drag gesture (reliable with SwiftUI content)
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         isReleasedWhenClosed = false
         minSize = NSSize(width: 260, height: 56)
@@ -43,15 +48,17 @@ public final class OverlayController {
 
     private var panels: [String: CaptionPanel] = [:]
     private var splitMode = false
-    private var lastHeightKey = ""
-    private var resizeStart: (frame: NSRect, mouse: NSPoint)?
+    private var gesture: (frame: NSRect, mouse: NSPoint, edges: ResizeEdges, panel: CaptionPanel)?
 
     public init(store: TranscriptStore, settings: SettingsStore) {
         self.store = store; self.settings = settings
         state.onHide = { [weak self] in self?.settings.profile.layout.showSubtitles = false }
         state.onToggleClickThrough = { [weak self] in self?.toggleClickThrough() }
         state.onOpenSettings = { [weak self] in self?.openSettings?() }
-        state.onResizeBegan = { [weak self] in self?.resizeBegan() }
+        state.onMoveBegan = { [weak self] in self?.moveBegan() }
+        state.onMoveChanged = { [weak self] in self?.moveChanged() }
+        state.onMoveEnded = { [weak self] in self?.moveEnded() }
+        state.onResizeBegan = { [weak self] in self?.resizeBegan($0) }
         state.onResizeChanged = { [weak self] in self?.resizeChanged() }
         state.onResizeEnded = { [weak self] in self?.resizeEnded() }
     }
@@ -87,14 +94,13 @@ public final class OverlayController {
         for (key, filter) in wanted where panels[key] == nil {
             let panel = CaptionPanel(autosaveName: "SubveilCaption.\(key)")
             let root = CaptionView(store: store, settings: settings, state: state, filter: filter)
-            let host = NSHostingView(rootView: root)
+            let host = FirstMouseHostingView(rootView: root)
             host.sizingOptions = []
             panel.contentView = host
             let restored = panel.setFrameUsingName("SubveilCaption.\(key)")
             panels[key] = panel
             if !restored { placeFirstTime(panel, index: key == "mic" ? 1 : 0) }
         }
-        lastHeightKey = ""
         apply()
     }
 
@@ -121,28 +127,19 @@ public final class OverlayController {
         state.isEditing = editing
         state.isActive = isActive || preview
 
-        // Height follows mode / lines / font size, but a manual resize is otherwise left alone.
-        let heightKey = "\(l.mode)|\(l.lines)|\(settings.profile.appearance.original.size)|\(settings.profile.content.mode)"
-        let heightChanged = heightKey != lastHeightKey
-        lastHeightKey = heightKey
-
+        // The panel keeps the size the user gave it — text scrolls inside, the panel never grows.
+        // Only the Width slider in Settings changes it (and only when it differs).
         for (key, p) in panels {
-            var f = p.frame
             let targetW = splitMode ? min(l.width, 640) : l.width
-            if abs(f.width - targetW) > 0.5 {
+            if gesture == nil, abs(p.frame.width - targetW) > 0.5 {
+                var f = p.frame
                 f.origin.x = f.midX - targetW / 2
                 f.size.width = targetW
+                p.setFrame(f, display: true)
             }
-            if heightChanged, resizeStart == nil {
-                let h = defaultHeight()
-                f.origin.y += f.height - h   // keep the top edge in place
-                f.size.height = h
-            }
-            if f != p.frame { p.setFrame(f, display: true) }
 
             p.ignoresMouseEvents = !editing || state.isFaded
             if editing { p.styleMask.insert(.resizable) } else { p.styleMask.remove(.resizable) }
-            p.isMovableByWindowBackground = editing
             p.level = switch l.level {
             case .statusBar: .statusBar
             case .popUp: .popUpMenu
@@ -154,27 +151,64 @@ public final class OverlayController {
         }
     }
 
-    // MARK: Corner-grip resize (top-left stays fixed)
+    // MARK: Move (with snapping) and resize from any edge
 
-    private func resizeBegan() {
-        guard let p = panels.values.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? panels.values.first else { return }
-        resizeStart = (p.frame, NSEvent.mouseLocation)
-        resizeTarget = p
+    private func panelUnderMouse() -> CaptionPanel? {
+        panels.values.first { $0.frame.insetBy(dx: -10, dy: -10).contains(NSEvent.mouseLocation) } ?? panels.values.first
     }
 
-    private var resizeTarget: CaptionPanel?
+    private func moveBegan() {
+        guard let p = panelUnderMouse() else { return }
+        gesture = (p.frame, NSEvent.mouseLocation, [], p)
+        NSCursor.closedHand.push()
+    }
+
+    private func moveChanged() {
+        guard let g = gesture, g.edges.isEmpty else { return }
+        let m = NSEvent.mouseLocation
+        var f = g.frame.offsetBy(dx: m.x - g.mouse.x, dy: m.y - g.mouse.y)
+        if let vis = (g.panel.screen ?? NSScreen.main)?.visibleFrame {
+            let snap: CGFloat = 14
+            if abs(f.midX - vis.midX) < snap { f.origin.x = vis.midX - f.width / 2 }      // centre
+            if abs(f.minX - vis.minX) < snap { f.origin.x = vis.minX }                    // edges
+            if abs(f.maxX - vis.maxX) < snap { f.origin.x = vis.maxX - f.width }
+            if abs(f.minY - vis.minY) < snap { f.origin.y = vis.minY }
+            if abs(f.maxY - vis.maxY) < snap { f.origin.y = vis.maxY - f.height }
+        }
+        g.panel.setFrameOrigin(f.origin)
+    }
+
+    private func moveEnded() {
+        if gesture != nil { NSCursor.pop() }
+        gesture = nil
+    }
+
+    private func resizeBegan(_ edges: ResizeEdges) {
+        guard let p = panelUnderMouse() else { return }
+        gesture = (p.frame, NSEvent.mouseLocation, edges, p)
+    }
 
     private func resizeChanged() {
-        guard let start = resizeStart, let p = resizeTarget else { return }
+        guard let g = gesture, !g.edges.isEmpty else { return }
         let m = NSEvent.mouseLocation
-        let w = max(p.minSize.width, start.frame.width + (m.x - start.mouse.x))
-        let h = max(p.minSize.height, start.frame.height - (m.y - start.mouse.y))
-        p.setFrame(NSRect(x: start.frame.minX, y: start.frame.maxY - h, width: w, height: h), display: true)
+        let dx = m.x - g.mouse.x, dy = m.y - g.mouse.y
+        let minW = g.panel.minSize.width, minH = g.panel.minSize.height
+        var f = g.frame
+        if g.edges.contains(.right) { f.size.width = max(minW, g.frame.width + dx) }
+        if g.edges.contains(.left) {
+            let w = max(minW, g.frame.width - dx)
+            f.origin.x = g.frame.maxX - w; f.size.width = w
+        }
+        if g.edges.contains(.top) { f.size.height = max(minH, g.frame.height + dy) }
+        if g.edges.contains(.bottom) {
+            let h = max(minH, g.frame.height - dy)
+            f.origin.y = g.frame.maxY - h; f.size.height = h
+        }
+        g.panel.setFrame(f, display: true)
     }
 
     private func resizeEnded() {
-        if let p = resizeTarget, !splitMode { settings.profile.layout.width = p.frame.width }
-        resizeStart = nil
-        resizeTarget = nil
+        if let g = gesture, !splitMode { settings.profile.layout.width = g.panel.frame.width }
+        gesture = nil
     }
 }

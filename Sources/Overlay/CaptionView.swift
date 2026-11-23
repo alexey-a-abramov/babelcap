@@ -14,25 +14,46 @@ public final class OverlayState {
     public var onHide: (() -> Void)?
     public var onToggleClickThrough: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
-    public var onResizeBegan: (() -> Void)?
+    public var onMoveBegan: (() -> Void)?
+    public var onMoveChanged: (() -> Void)?
+    public var onMoveEnded: (() -> Void)?
+    public var onResizeBegan: ((ResizeEdges) -> Void)?
     public var onResizeChanged: (() -> Void)?
     public var onResizeEnded: (() -> Void)?
     public init() {}
 }
 
+public struct ResizeEdges: OptionSet, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+    public static let left = ResizeEdges(rawValue: 1)
+    public static let right = ResizeEdges(rawValue: 2)
+    public static let top = ResizeEdges(rawValue: 4)
+    public static let bottom = ResizeEdges(rawValue: 8)
+}
+
 /// Corner grip with its own mouse handling (so the window does not start moving instead of resizing).
 struct ResizeGrip: NSViewRepresentable {
     let state: OverlayState
-    func makeNSView(context: Context) -> GripView { GripView(state: state) }
+    var edges: ResizeEdges = [.right, .bottom]
+    func makeNSView(context: Context) -> GripView { GripView(state: state, edges: edges) }
     func updateNSView(_ v: GripView, context: Context) {}
 
     final class GripView: NSView {
         let state: OverlayState
-        init(state: OverlayState) { self.state = state; super.init(frame: .zero) }
+        let edges: ResizeEdges
+        init(state: OverlayState, edges: ResizeEdges) { self.state = state; self.edges = edges; super.init(frame: .zero) }
         required init?(coder: NSCoder) { fatalError() }
         override var mouseDownCanMoveWindow: Bool { false }
-        override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
-        override func mouseDown(with event: NSEvent) { MainActor.assumeIsolated { state.onResizeBegan?() } }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func resetCursorRects() {
+            let cursor: NSCursor
+            if edges == [.left] || edges == [.right] { cursor = .resizeLeftRight }
+            else if edges == [.top] || edges == [.bottom] { cursor = .resizeUpDown }
+            else { cursor = .crosshair }
+            addCursorRect(bounds, cursor: cursor)
+        }
+        override func mouseDown(with event: NSEvent) { MainActor.assumeIsolated { state.onResizeBegan?(edges) } }
         override func mouseDragged(with event: NSEvent) { MainActor.assumeIsolated { state.onResizeChanged?() } }
         override func mouseUp(with event: NSEvent) { MainActor.assumeIsolated { state.onResizeEnded?() } }
     }
@@ -58,6 +79,7 @@ public struct CaptionView: View {
     @State private var lastActivity = Date()
     @State private var faded = false
     @State private var hovering = false
+    @State private var dragging = false
 
     public init(store: TranscriptStore, settings: SettingsStore, state: OverlayState, filter: SourceKind? = nil, sample: [Segment]? = nil) {
         self.store = store; self.settings = settings; self.state = state; self.filter = filter; self.sample = sample
@@ -65,7 +87,14 @@ public struct CaptionView: View {
 
     private var p: Profile { settings.profile }
     private var segments: [Segment] {
-        (sample ?? store.segments).filter { !$0.hidden && (filter == nil || $0.source == filter || ($0.source == .mixed && filter == .system)) }
+        (sample ?? store.segments).filter {
+            !$0.hidden && (filter == nil || $0.source == filter || ($0.source == .mixed && filter == .system))
+                && !lines($0).isEmpty
+        }
+    }
+
+    private func lines(_ s: Segment) -> CaptionContent.Lines {
+        CaptionContent.lines(for: s, mode: contentMode, translation: p.translation(for: s.source == .mic ? .mic : .system))
     }
     private var contentMode: ContentDisplay { p.layout.mode == .dual ? .both : p.content.mode }
 
@@ -76,9 +105,12 @@ public struct CaptionView: View {
             Group {
                 if p.layout.mode == .feed { feed(segs) } else { captions(segs) }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .bottom)
             .padding(p.appearance.padding)
             .background(background)
+            .contentShape(Rectangle())
+            .gesture(moveGesture, including: state.isEditing && sample == nil ? .all : .subviews)
+            .overlay { if state.isEditing && sample == nil && state.isActive { edgeHandles } }
             .overlay {
                 if state.isEditing && hovering && sample == nil {
                     RoundedRectangle(cornerRadius: p.appearance.cornerRadius)
@@ -94,6 +126,40 @@ public struct CaptionView: View {
         .onChange(of: signature(segs)) { lastActivity = Date(); faded = false }
         .onChange(of: faded) { state.isFaded = faded }
         .task(id: p.layout.autoHideSeconds) { await autoHideLoop() }
+    }
+
+    /// Drag anywhere on the box. Uses the global mouse position, so moving the window never feeds back into the gesture.
+    private var moveGesture: some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+            .onChanged { _ in
+                if !dragging { dragging = true; state.onMoveBegan?() }
+                state.onMoveChanged?()
+            }
+            .onEnded { _ in dragging = false; state.onMoveEnded?() }
+    }
+
+    /// Invisible 8-pt resize zones on every edge and corner.
+    private var edgeHandles: some View {
+        let t: CGFloat = 8
+        return ZStack {
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ResizeGrip(state: state, edges: [.left, .top]).frame(width: t, height: t)
+                    ResizeGrip(state: state, edges: [.top]).frame(height: t)
+                    ResizeGrip(state: state, edges: [.right, .top]).frame(width: t, height: t)
+                }
+                HStack(spacing: 0) {
+                    ResizeGrip(state: state, edges: [.left]).frame(width: t)
+                    Color.clear.allowsHitTesting(false)
+                    ResizeGrip(state: state, edges: [.right]).frame(width: t)
+                }
+                HStack(spacing: 0) {
+                    ResizeGrip(state: state, edges: [.left, .bottom]).frame(width: t, height: t)
+                    ResizeGrip(state: state, edges: [.bottom]).frame(height: t)
+                    ResizeGrip(state: state, edges: [.right, .bottom]).frame(width: t, height: t)
+                }
+            }
+        }
     }
 
     private var showChrome: Bool { state.isEditing && hovering && sample == nil && state.isActive }
@@ -167,7 +233,11 @@ public struct CaptionView: View {
             }
             ForEach(tail) { row($0) }
         }
+        .fixedSize(horizontal: false, vertical: true)   // never compress rows; overflow goes out through the top
+        .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .bottom)
         .clipped()
+        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.18),
+                                     .init(color: .black, location: 1)], startPoint: .top, endPoint: .bottom))
         .animation(.spring(duration: 0.3), value: tail.map(\.id))
     }
 
@@ -190,8 +260,9 @@ public struct CaptionView: View {
     private func row(_ s: Segment) -> some View {
         let a = p.appearance
         let tr = s.fullTranslation.trimmingCharacters(in: .whitespaces)
-        let showTr = contentMode != .original && !tr.isEmpty
-        let showOr = contentMode != .translation || tr.isEmpty
+        let show = lines(s)
+        let showTr = show.translation
+        let showOr = show.original
         let rtl = isRTL(showOr ? s.fullOriginal : tr)
         let align: Alignment = switch p.layout.alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
         let textAlign: TextAlignment = switch p.layout.alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
@@ -263,8 +334,8 @@ private struct TextEffects: ViewModifier {
 
 public enum CaptionSamples {
     public static let segments: [Segment] = [
-        Segment(id: 1, source: .system, speaker: "1", language: "en", original: "Let's go over the release plan for next week.", translation: "Давайте обсудим план релиза на следующую неделю.", isClosed: true),
+        Segment(id: 1, source: .system, speaker: "1", language: "he", original: "בואו נעבור על תוכנית השחרור לשבוע הבא.", translation: "Let's go over the release plan for next week.", isClosed: true),
         Segment(id: 2, source: .mic, language: "ru", original: "Хорошо, я подготовил список изменений.", translation: "Okay, I prepared the list of changes.", isClosed: true),
-        Segment(id: 3, source: .system, speaker: "1", language: "en", original: "Great. The main risk is the", translation: "", draftOriginal: " migration", draftTranslation: "Отлично. Главный риск —"),
+        Segment(id: 3, source: .system, speaker: "1", language: "en", original: "Great. The main risk is the", translation: "", draftOriginal: " migration"),
     ]
 }
