@@ -34,7 +34,9 @@ public enum OverlayMode: String, Codable, CaseIterable, Sendable { case captions
     public var title: String { rawValue.capitalized }
 }
 public enum ContentDisplay: String, Codable, CaseIterable, Sendable { case original, translation, both
-    public var title: String { rawValue.capitalized }
+    public var title: String {
+        switch self { case .original: "Original"; case .translation: "Target language"; case .both: "Original + translation" }
+    }
 }
 public enum SourceMode: String, Codable, CaseIterable, Sendable { case system, mic, both
     public var title: String { self == .both ? "Both" : self == .system ? "System" : "Mic" }
@@ -96,7 +98,8 @@ public struct LayoutSettings: Codable, Hashable, Sendable {
 }
 
 public struct ContentSettings: Codable, Hashable, Sendable {
-    public var mode: ContentDisplay = .both
+    /// Default: show only the target language (no foreign-language text when translation is on).
+    public var mode: ContentDisplay = .translation
     /// "Them" / "Me" prefix. Off by default — turn on when you want to see who is speaking.
     public var showSourceLabel = false
     public var showSpeaker = false
@@ -150,7 +153,8 @@ public struct RecognitionSettings: Codable, Hashable, Sendable {
 
 public struct SessionSettings: Codable, Hashable, Sendable {
     public var autoPauseMinutes = 5            // 0 = off
-    public var saveHistory = true
+    /// Off by default: every session starts from zero and nothing is kept on disk.
+    public var saveHistory = false
     public var exportFormat = "markdown"
     public var exportFolder: String?
     public var mixIntoOne = false

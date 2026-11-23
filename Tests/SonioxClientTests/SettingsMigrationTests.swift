@@ -19,6 +19,7 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertFalse(p.content.showSourceLabel, "Them/Me labels are opt-in")
         XCTAssertFalse(p.layout.clickThrough, "subtitle panel is draggable/resizable by default")
         XCTAssertTrue(s.showInDock)
+        XCTAssertEqual(p.content.mode, .translation, "only the target language is shown by default")
     }
 
     func testOldSettingsFileIsMigratedAndStillDecodes() async throws {
@@ -32,6 +33,7 @@ final class SettingsMigrationTests: XCTestCase {
         seed.profiles[0].translationSystem = TranslationSettings(kind: .off)
         seed.profiles[0].translationMic = TranslationSettings(kind: .off)
         seed.profiles[0].content.showSourceLabel = true
+        seed.profiles[0].content.mode = .both
         try await Task.sleep(for: .milliseconds(900)) // debounced save
         let url = dir.appendingPathComponent("settings.json")
         var root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
@@ -49,6 +51,7 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(s.profile.translationMic.target, "en")
         XCTAssertFalse(s.profile.content.showSourceLabel)
         XCTAssertFalse(s.profile.layout.clickThrough)
+        XCTAssertEqual(s.profile.content.mode, .translation)
         XCTAssertTrue(s.onboardingDone == seed.onboardingDone, "other settings survive the migration")
     }
 }

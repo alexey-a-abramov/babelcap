@@ -176,11 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func dockSettings() { MainActor.assumeIsolated { AppContext.shared.openSettings() } }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // Best effort: persist the history of a running session.
-        MainActor.assumeIsolated {
-            let sem = DispatchSemaphore(value: 0)
-            Task { @MainActor in await AppContext.shared.engine.stop(); sem.signal() }
-            _ = sem.wait(timeout: .now() + 0.01)
-        }
+        // Synchronous: persist the running session's transcript before the process exits.
+        MainActor.assumeIsolated { AppContext.shared.engine.saveHistory() }
     }
 }

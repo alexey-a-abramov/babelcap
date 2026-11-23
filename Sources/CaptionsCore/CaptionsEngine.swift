@@ -69,6 +69,7 @@ public final class CaptionsEngine {
     /// Test / debugging seams.
     @ObservationIgnored public var captureFactory: (@MainActor (SourceKind, RecognitionSettings) -> any AudioSource)?
     @ObservationIgnored public var endpoint: URL = SonioxSession.endpoint
+    @ObservationIgnored public var historyDirectory: URL = AppPaths.historyDir
     @ObservationIgnored private var apiKey = ""
 
     @ObservationIgnored private var runtimes: [SourceKind: Runtime] = [:]
@@ -122,6 +123,7 @@ public final class CaptionsEngine {
             return
         }
         needsKey = false; lastError = nil
+        store.clear()   // every session starts from a clean transcript
         store.dedupeEchoes = settings.profile.session.dedupeEchoes
         elapsed = 0; estimatedCost = 0; systemPermissionHint = false
         runState = .running
@@ -446,6 +448,7 @@ public final class CaptionsEngine {
     private func tick(_ n: Int) async {
         guard runState != .idle else { return }
         elapsed += 1
+        if n % 30 == 29 { saveHistory() }
         var cost = estimatedCost
         for rt in runtimes.values where rt.box.get() != nil {
             rt.billedSeconds += 1
@@ -500,10 +503,9 @@ public final class CaptionsEngine {
 
     // MARK: History
 
-    private func saveHistory() {
-        guard settings.profile.session.saveHistory, !store.segments.isEmpty else { return }
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd_HHmmss"
-        let url = AppPaths.historyDir.appendingPathComponent("\(f.string(from: store.sessionStart)).json")
-        try? store.export(.json).write(to: url, atomically: true, encoding: .utf8)
+    /// Optional (off by default): writes the session's transcript to History/<sessionStart>.json every 30 s, on stop and on quit.
+    public func saveHistory() {
+        guard settings.profile.session.saveHistory else { return }
+        HistoryFiles.save(store.segments, sessionStart: store.sessionStart, to: historyDirectory)
     }
 }

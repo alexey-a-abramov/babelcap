@@ -52,6 +52,14 @@ public final class SettingsStore {
         if let d = try? Data(contentsOf: url), let s = try? JSONDecoder().decode(PersistedState.self, from: d), !s.profiles.isEmpty {
             loaded = s.profiles; active = s.activeID; model = s.modelName; onboarded = s.onboardingDone
             dock = s.showInDock ?? true
+            if (s.schemaVersion ?? 1) < 4 {
+                // v4: no transcript history by default.
+                for i in loaded.indices { loaded[i].session.saveHistory = false }
+            }
+            if (s.schemaVersion ?? 1) < 3 {
+                // v3: show only the target language by default.
+                for i in loaded.indices where loaded[i].name.hasPrefix("Default") { loaded[i].content.mode = .translation }
+            }
             if (s.schemaVersion ?? 1) < 2 {
                 // v2: translate everything to English by default; "Them/Me" labels off by default.
                 for i in loaded.indices where loaded[i].name == "Default" {
@@ -116,7 +124,7 @@ public final class SettingsStore {
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled, let self else { return }
-            let state = PersistedState(profiles: profiles, activeID: activeID, modelName: modelName, onboardingDone: onboardingDone, schemaVersion: 2, showInDock: showInDock)
+            let state = PersistedState(profiles: profiles, activeID: activeID, modelName: modelName, onboardingDone: onboardingDone, schemaVersion: 4, showInDock: showInDock)
             let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             if let d = try? enc.encode(state) { try? d.write(to: fileURL, options: .atomic) }
         }
