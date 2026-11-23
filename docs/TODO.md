@@ -84,7 +84,7 @@ Needs a real Soniox key and live audio.
 - [~] Session rotation at minute 290
 - [~] Rebuild tap/engine on output-device change and sleep/wake (`DeviceMonitor`)
 - [~] Auto-pause on silence + minutes and cost counter (FR-18)
-- [~] History in `~/Library/Application Support/Subveil/History`, export MD/SRT/JSON (FR-19)
+- [~] Export MD/SRT/JSON (FR-19); optional history in `~/Library/Application Support/Subveil/History` — **off by default, every session starts clean** (owner decision)
 - [x] Mock WebSocket server + tests for 401, 429, reconnect, replay (see "Diagnostics and tests")
 - [ ] Mock-server tests for 408 / 413
 - [ ] WAV fixtures for `Resampler` / `AudioPump` tests
@@ -118,7 +118,7 @@ Needs a real Soniox key and live audio.
 - [ ] Minimum macOS: 14.4 (now) or 15+?
 - [ ] Default mode: two streams or one mixed stream?
 - [ ] First-run language pairs and profiles (now: Default (→ English), Call RU↔EN, Meetup HE→EN, Video EN→RU)
-- [ ] Keep history by default and for how many days (now: kept, no expiry)
+- [x] Keep history by default? **No** — each session starts from zero; saving is opt-in
 - [ ] Auto-pause: after how many minutes of silence (now: 5)
 - [ ] Final name (Subveil is a working title; "Live Captions" is taken by a macOS feature)
 - [ ] Translation voice-over (Soniox TTS) and LLM meeting summaries — wanted later?
@@ -136,6 +136,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-23 — Subtitles show only the target language by default; fixed-size panel (lines fade out at the top), drag anywhere with snapping, resize from any edge; no history by default; simplified README around use cases.
 
 - 2026-11-23 — Stage 0: skeleton, all modules, tests, `.app` build, launch.
 - 2026-11-23 — Root cause of "API key required": an item created with `security add-generic-password` triggers a Keychain access dialog, and the read on launch blocked the app. The key is now read off the main thread, existence is checked without a prompt, and builds are signed with a stable Apple Development identity.
