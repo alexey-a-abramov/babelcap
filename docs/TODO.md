@@ -132,7 +132,8 @@ Needs a real Soniox key and live audio.
 ## Repository / README
 
 - [x] Public repository https://github.com/alexey-a-abramov/subveil, README in English, MIT license
-- [ ] README screenshots (`docs/images/`): translation in subtitles (original + English), System/Mic/Both switching in the HUD, expanded HUD, appearance settings
+- [x] README screenshot: video with live translation (`docs/images/demo-video-translation.jpg`)
+- [ ] More screenshots: System/Mic/Both switching in the HUD, expanded HUD, appearance settings, target-language-only mode
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log

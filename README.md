@@ -7,6 +7,11 @@ Hear any language, read it in yours.<br>
 Live translated subtitles on top of everything on your Mac — videos, calls, meetings, meetups.
 </p>
 
+<p align="center">
+  <img src="docs/images/demo-video-translation.jpg" width="820" alt="Subveil translating a Russian-dubbed video into English subtitles in real time">
+  <br><sub>A Russian-dubbed video, translated into English live (shown here in “original + translation” mode).</sub>
+</p>
+
 > **Early alpha.** Works end to end, still rough. Progress and known gaps: [docs/TODO.md](docs/TODO.md).
 
 ## What it's for
