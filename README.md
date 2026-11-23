@@ -105,6 +105,10 @@ Swift 6 package, strict concurrency, no third-party dependencies.
 
 Contributor and agent notes live in [AGENTS.md](AGENTS.md); the roadmap and open questions in [docs/TODO.md](docs/TODO.md).
 
+## License
+
+[MIT](LICENSE) © 2026 Alexey Abramov
+
 ## Disclaimer
 
 Subveil is an independent project and is not affiliated with or endorsed by Soniox.

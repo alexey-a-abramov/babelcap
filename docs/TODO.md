@@ -126,7 +126,7 @@
 
 - [x] Публичный репозиторий https://github.com/alexey-a-abramov/subveil, README на английском
 - [ ] Скриншоты в README (`docs/images/`): перевод в субтитрах (оригинал + English), переключение System/Mic/Both в HUD, раскрытый HUD, настройки внешнего вида
-- [ ] Лицензия (решение владельца: MIT / Apache-2.0 / другая) — без неё репозиторий формально «all rights reserved»
+- [x] Лицензия MIT
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Журнал
