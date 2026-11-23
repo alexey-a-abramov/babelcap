@@ -71,12 +71,34 @@ public struct LayoutSettings: Codable, Hashable, Sendable {
     public var autoHideSeconds: Double = 0     // 0 = never
     public var hideFromSharing = false
     public var showSubtitles = true
+    /// false (default): the subtitle panel can be dragged / resized; true: mouse clicks pass through it.
+    public var clickThrough = false
     public init() {}
+
+    enum CodingKeys: String, CodingKey {
+        case mode, lines, width, alignment, level, autoHideSeconds, hideFromSharing, showSubtitles, clickThrough
+    }
+
+    /// Tolerant decoding: profiles saved by older versions lack newer keys.
+    public init(from d: Decoder) throws {
+        self.init()
+        let c = try d.container(keyedBy: CodingKeys.self)
+        mode = try c.decodeIfPresent(OverlayMode.self, forKey: .mode) ?? mode
+        lines = try c.decodeIfPresent(Int.self, forKey: .lines) ?? lines
+        width = try c.decodeIfPresent(Double.self, forKey: .width) ?? width
+        alignment = try c.decodeIfPresent(CaptionAlignment.self, forKey: .alignment) ?? alignment
+        level = try c.decodeIfPresent(WindowLevelOption.self, forKey: .level) ?? level
+        autoHideSeconds = try c.decodeIfPresent(Double.self, forKey: .autoHideSeconds) ?? autoHideSeconds
+        hideFromSharing = try c.decodeIfPresent(Bool.self, forKey: .hideFromSharing) ?? hideFromSharing
+        showSubtitles = try c.decodeIfPresent(Bool.self, forKey: .showSubtitles) ?? showSubtitles
+        clickThrough = try c.decodeIfPresent(Bool.self, forKey: .clickThrough) ?? clickThrough
+    }
 }
 
 public struct ContentSettings: Codable, Hashable, Sendable {
     public var mode: ContentDisplay = .both
-    public var showSourceLabel = true
+    /// "Them" / "Me" prefix. Off by default — turn on when you want to see who is speaking.
+    public var showSourceLabel = false
     public var showSpeaker = false
     public var showLanguage = false
     public var showTimestamp = false
@@ -144,8 +166,8 @@ public struct Profile: Codable, Hashable, Sendable, Identifiable {
     public var layout = LayoutSettings()
     public var content = ContentSettings()
     public var recognition = RecognitionSettings()
-    public var translationSystem = TranslationSettings()
-    public var translationMic = TranslationSettings()
+    public var translationSystem = TranslationSettings(kind: .oneWay, target: "en")
+    public var translationMic = TranslationSettings(kind: .oneWay, target: "en")
     public var session = SessionSettings()
 
     public init(name: String) { self.name = name }
@@ -154,6 +176,7 @@ public struct Profile: Codable, Hashable, Sendable, Identifiable {
 
     public static var presets: [Profile] {
         var call = Profile(name: "Call RU↔EN")
+        call.content.showSourceLabel = true
         call.sources = .both
         call.recognition.languageHints = ["en", "ru"]
         call.translationSystem = .init(kind: .oneWay, target: "ru")
@@ -171,7 +194,9 @@ public struct Profile: Codable, Hashable, Sendable, Identifiable {
         video.sources = .system
         video.recognition.languageHints = ["en"]
         video.translationSystem = .init(kind: .oneWay, target: "ru")
-        return [Profile(name: "Default"), call, meetup, video]
+        var def = Profile(name: "Default (→ English)")
+        def.recognition.languageHints = ["en", "ru", "he"]
+        return [def, call, meetup, video]
     }
 }
 
