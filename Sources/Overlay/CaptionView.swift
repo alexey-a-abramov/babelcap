@@ -14,6 +14,8 @@ public final class OverlayState {
     public var onHide: (() -> Void)?
     public var onToggleClickThrough: (() -> Void)?
     public var onToggleSplit: (() -> Void)?
+    /// Two panels are currently shown (System / Mic).
+    public var isSplit = false
     public var onOpenSettings: (() -> Void)?
     public var onMoveBegan: (() -> Void)?
     public var onMoveChanged: (() -> Void)?
@@ -176,8 +178,8 @@ public struct CaptionView: View {
         HStack(spacing: 2) {
             chromeButton("eye.slash", "Hide subtitles (⌥⌘C brings them back)") { state.onHide?() }
             if p.sources == .both && !p.session.mixIntoOne {
-                chromeButton(p.layout.separateSources ? "rectangle.compress.vertical" : "rectangle.split.2x1",
-                             p.layout.separateSources ? "Merge “System” and “Mic” into one panel" : "Split into two panels: “System” and “Mic”") {
+                chromeButton(state.isSplit ? "rectangle.compress.vertical" : "rectangle.split.2x1",
+                             state.isSplit ? "Merge “System” and “Mic” into one panel" : "Split into two panels: “System” and “Mic”") {
                     state.onToggleSplit?()
                 }
             }

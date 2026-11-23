@@ -26,14 +26,16 @@ public final class CaptionPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         isReleasedWhenClosed = false
         minSize = NSSize(width: 260, height: 56)
-        setFrameAutosaveName(autosaveName)
+        identifier = NSUserInterfaceItemIdentifier(autosaveName)
     }
 }
 
-/// Owns the subtitle window(s): one for Captions/Feed/Dual, two ("System" / "Mic") for Split.
+/// Owns the subtitle window(s): one combined panel, or two ("System" / "Mic") in Both mode.
 ///
-/// - The panel is draggable and resizable by default; "click-through" turns both off.
+/// - The panel is draggable and resizable by default; "click-through" turns both off (hold ⌘ to override).
 /// - It is on screen only while a session is active (or while `preview` is on), so it never lingers.
+/// - Every panel's position and size are remembered (across hide/show, sessions and launches).
+/// - Split / merge from the toolbar lasts for the current session only; a new session starts from the setting.
 @MainActor
 public final class OverlayController {
     private let store: TranscriptStore
@@ -42,12 +44,21 @@ public final class OverlayController {
     public var openSettings: (() -> Void)?
 
     /// A capture session is running (or ended moments ago).
-    public var isActive = false { didSet { apply() } }
+    public var isActive = false {
+        didSet {
+            if isActive && !oldValue { splitOverride = nil }   // a new session starts from the default layout
+            apply()
+        }
+    }
     /// Show the (empty) panel while idle so it can be positioned.
     public var preview = false { didSet { apply() } }
 
     private var panels: [String: CaptionPanel] = [:]
     private var splitMode = false
+    /// Toolbar split / merge choice — not persisted.
+    private var splitOverride: Bool?
+    /// Last Width-slider value applied, so a manual resize is never overridden.
+    private var appliedWidth: Double?
     private var gesture: (frame: NSRect, mouse: NSPoint, edges: ResizeEdges, panel: CaptionPanel)?
 
     public init(store: TranscriptStore, settings: SettingsStore) {
@@ -55,7 +66,11 @@ public final class OverlayController {
         state.onHide = { [weak self] in self?.settings.profile.layout.showSubtitles = false }
         state.onToggleClickThrough = { [weak self] in self?.toggleClickThrough() }
         state.onOpenSettings = { [weak self] in self?.openSettings?() }
-        state.onToggleSplit = { [weak self] in self?.settings.profile.layout.separateSources.toggle() }
+        state.onToggleSplit = { [weak self] in
+            guard let self else { return }
+            splitOverride = !wantsSplit
+            apply()
+        }
         state.onMoveBegan = { [weak self] in self?.moveBegan() }
         state.onMoveChanged = { [weak self] in self?.moveChanged() }
         state.onMoveEnded = { [weak self] in self?.moveEnded() }
@@ -64,7 +79,15 @@ public final class OverlayController {
         state.onResizeEnded = { [weak self] in self?.resizeEnded() }
     }
 
+    /// Two panels only make sense for two separate streams; the toolbar choice beats the setting for this session.
+    private var wantsSplit: Bool {
+        let p = settings.profile
+        guard p.sources == .both, !p.session.mixIntoOne else { return false }
+        return splitOverride ?? p.layout.separateSources
+    }
+
     public func start() {
+        appliedWidth = settings.profile.layout.width
         rebuild()
         track()
         watchCommandKey()
@@ -92,29 +115,81 @@ public final class OverlayController {
     // MARK: Panels
 
     private func rebuild() {
-        splitMode = settings.profile.showsSeparatePanels
+        splitMode = wantsSplit
+        state.isSplit = splitMode
         let wanted: [(String, SourceKind?)] = splitMode ? [("system", .system), ("mic", .mic)] : [("main", nil)]
-        for (k, p) in panels where !wanted.contains(where: { $0.0 == k }) { p.orderOut(nil); panels[k] = nil }
+
+        // Remember the frames of panels going away (they are restored next time they appear).
+        var known: [String: NSRect] = [:]
+        for (k, p) in panels { known[k] = p.frame }
+        for (k, p) in panels where !wanted.contains(where: { $0.0 == k }) {
+            Self.saveFrame(p.frame, key: k)
+            if let o = observers.removeValue(forKey: k) { o.forEach { NotificationCenter.default.removeObserver($0) } }
+            p.orderOut(nil)
+            panels[k] = nil
+        }
+
         for (key, filter) in wanted where panels[key] == nil {
-            let panel = CaptionPanel(autosaveName: "SubveilCaption.\(key)")
+            let panel = CaptionPanel(autosaveName: Self.name(key))
             let root = CaptionView(store: store, settings: settings, state: state, filter: filter)
             let host = FirstMouseHostingView(rootView: root)
             host.sizingOptions = []
             panel.contentView = host
-            let restored = panel.setFrameUsingName("SubveilCaption.\(key)")
             panels[key] = panel
-            if !restored { placeFirstTime(panel, index: key == "mic" ? 1 : 0) }
+            panel.setFrame(Self.savedFrame(key) ?? initialFrame(for: key, known: known), display: true)
+            // Remember every move / resize, whatever caused it.
+            observers[key] = [NSWindow.didMoveNotification, NSWindow.didResizeNotification].map { name in
+                NotificationCenter.default.addObserver(forName: name, object: panel, queue: .main) { [weak panel] _ in
+                    guard let panel else { return }
+                    MainActor.assumeIsolated { Self.saveFrame(panel.frame, key: key) }
+                }
+            }
         }
         apply()
     }
 
-    private func placeFirstTime(_ panel: CaptionPanel, index: Int) {
+    private static func name(_ key: String) -> String { "SubveilCaption.\(key)" }
+    private var observers: [String: [NSObjectProtocol]] = [:]
+
+    // Own frame storage: the system frame autosave does not restore the size of panels that are not resizable
+    // at creation time (and click-through panels are not resizable).
+    static func defaultsKey(_ key: String) -> String { "SubveilCaption.\(key).frame" }
+
+    static func saveFrame(_ r: NSRect, key: String) {
+        guard r.width > 0, r.height > 0 else { return }
+        UserDefaults.standard.set(NSStringFromRect(r), forKey: defaultsKey(key))
+    }
+
+    /// The saved frame, if it is still (at least partly) on a connected screen.
+    static func savedFrame(_ key: String) -> NSRect? {
+        var r = NSRect.zero
+        if let s = UserDefaults.standard.string(forKey: defaultsKey(key)) {
+            r = NSRectFromString(s)
+        } else if let legacy = UserDefaults.standard.string(forKey: "NSWindow Frame \(name(key))") {
+            // Frame saved by the earlier system autosave ("x y w h …"): keep the user's position after the update.
+            let n = legacy.split(separator: " ").prefix(4).compactMap { Double($0) }
+            if n.count == 4 { r = NSRect(x: n[0], y: n[1], width: n[2], height: n[3]) }
+        }
+        guard r.width >= 100, r.height >= 40 else { return nil }
+        let screens = NSScreen.screens.map(\.frame)
+        guard screens.isEmpty || screens.contains(where: { $0.intersects(r) }) else { return nil }
+        return r
+    }
+
+    /// Current panel frames by key ("main", "system", "mic") — for tests and diagnostics.
+    var panelFrames: [String: NSRect] { panels.mapValues(\.frame) }
+    var panelForTesting: (String) -> CaptionPanel? { { self.panels[$0] } }
+
+    /// Only for a panel that has never been shown (otherwise its saved frame is restored exactly as it was):
+    /// bottom of the screen, the two source panels side by side.
+    private func initialFrame(for key: String, known: [String: NSRect]) -> NSRect {
+        let gap: CGFloat = 12
         let l = settings.profile.layout
-        let w = splitMode ? min(l.width, 640) : l.width
+        let w = key == "main" ? l.width : min(l.width, 640)
         let h = defaultHeight()
-        guard let vis = NSScreen.main?.visibleFrame else { return }
-        let x = vis.midX - w / 2 + (splitMode ? (index == 0 ? -w / 2 - 10 : w / 2 + 10) : 0)
-        panel.setFrame(NSRect(x: x, y: vis.minY + 70, width: w, height: h), display: true)
+        let vis = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let x = key == "main" ? vis.midX - w / 2 : (key == "system" ? vis.midX - w - gap / 2 : vis.midX + gap / 2)
+        return NSRect(x: x, y: vis.minY + 70, width: w, height: h)
     }
 
     private func defaultHeight() -> Double {
@@ -125,22 +200,22 @@ public final class OverlayController {
     }
 
     private func apply() {
-        if settings.profile.showsSeparatePanels != splitMode { rebuild(); return }
+        if wantsSplit != splitMode { rebuild(); return }
         let l = settings.profile.layout
         // Click-through can always be overridden by holding ⌘ over the panel.
         let editing = !l.clickThrough || commandOverride || gesture != nil
         state.isEditing = editing
         state.isActive = isActive || preview
 
-        // The panel keeps the size the user gave it — text scrolls inside, the panel never grows.
-        // Only the Width slider in Settings changes it (and only when it differs).
+        // Panels keep the size the user gave them — text scrolls inside, a panel never grows.
+        // Only moving the Width slider in Settings resizes the combined panel.
+        let widthChanged = appliedWidth != nil && appliedWidth != l.width
+        appliedWidth = l.width
         for (key, p) in panels {
-            // Separate panels each keep their own size; the combined panel follows the Width setting.
-            let targetW = l.width
-            if !splitMode, gesture == nil, abs(p.frame.width - targetW) > 0.5 {
+            if widthChanged, !splitMode, gesture == nil, abs(p.frame.width - l.width) > 0.5 {
                 var f = p.frame
-                f.origin.x = f.midX - targetW / 2
-                f.size.width = targetW
+                f.origin.x = f.midX - l.width / 2
+                f.size.width = l.width
                 p.setFrame(f, display: true)
             }
 
@@ -239,7 +314,12 @@ public final class OverlayController {
     }
 
     private func resizeEnded() {
-        if let g = gesture, !splitMode { settings.profile.layout.width = g.panel.frame.width }
+        if let g = gesture {
+            if !splitMode {
+                appliedWidth = g.panel.frame.width          // the slider follows the manual resize, without a re-apply
+                settings.profile.layout.width = g.panel.frame.width
+            }
+        }
         gesture = nil
         apply()
     }
