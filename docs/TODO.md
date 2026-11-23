@@ -9,7 +9,7 @@ After finishing a stage: tick the items, update "Deviations from the spec", comm
 | Stage | State |
 |---|---|
 | 0. Skeleton and tests | ✅ done |
-| 1. Spike: de-risk on real hardware | 🟡 in progress — key, WebSocket, mic transcription and translation seen working; system-audio tap and measurements still open |
+| 1. Spike: de-risk on real hardware | 🟡 in progress — key, WebSocket, system-audio tap, mic transcription and translation seen working; measurements still open |
 | 2. MVP (menu bar, key, single source, overlay, HUD) | 🟡 code done, needs verification |
 | 3. Two sources and translation | 🟡 code done, needs verification |
 | 4. Control panel and customisation | 🟡 code done, needs polish and verification |
@@ -32,7 +32,8 @@ Needs a real Soniox key and live audio.
 - [x] Microphone capture + one-way translation to English observed working end to end (screenshot)
 - [x] Overlay renders above other windows
 - [ ] Onboarding window actually appears on first launch *(not seen in an early screenshot — maybe hidden behind other windows; check `NSApp.activate` for an accessory app)*
-- [ ] **System audio tap**: permission prompt appears, HUD level moves during playback, the "silent denial" hint fires when permission is refused
+- [x] **System audio tap** captures playback (trace shows system RMS > 0 and a live Soniox stream)
+- [ ] System audio: the "silent denial" hint fires when permission is refused
 - [ ] Microphone: device selection; voice processing does not break capture (check the 9-channel VP format)
 - [ ] Measurements: latency to draft (target ≤ 500 ms p50), CPU on M1 (< 5% with two streams), memory (< 150 MB after 2 h)
 - [ ] Tap compatibility with App Sandbox (Mac App Store) — find out and record the answer
@@ -125,7 +126,7 @@ Needs a real Soniox key and live audio.
 ## Diagnostics and tests
 
 - Trace log: `~/Library/Logs/Subveil/trace.log` (also `log stream --predicate 'subsystem == "app.subveil"'`). It records states, codes, counters and levels — **never the API key or transcript text**. Follow it with `tail -f ~/Library/Logs/Subveil/trace.log`.
-- Automated tests (`swift test`, 24 tests): token assembly; Soniox models; `SonioxSession` against a local mock WebSocket server (Bearer header, config without `api_key`, 401 without reconnect, 429 backoff, reconnect + replay + timestamp offset); the whole engine with a fake capture (start, audio flow, transcript, pause/resume, translation change without losing history, 401, missing key); Keychain (isolated service name); settings defaults and migration.
+- Automated tests (`swift test`, 27 tests, incl. off-screen HUD layout checks): token assembly; Soniox models; `SonioxSession` against a local mock WebSocket server (Bearer header, config without `api_key`, 401 without reconnect, 429 backoff, reconnect + replay + timestamp offset); the whole engine with a fake capture (start, audio flow, transcript, pause/resume, translation change without losing history, 401, missing key); Keychain (isolated service name); settings defaults and migration.
 - [ ] UI / onboarding tests (XCUITest or snapshots); `SystemAudioTap` / `MicCapture` tests on hardware (not possible in CI)
 
 ## Repository / README
@@ -139,4 +140,5 @@ Needs a real Soniox key and live audio.
 - 2026-11-23 — Stage 0: skeleton, all modules, tests, `.app` build, launch.
 - 2026-11-23 — Root cause of "API key required": an item created with `security add-generic-password` triggers a Keychain access dialog, and the read on launch blocked the app. The key is now read off the main thread, existence is checked without a prompt, and builds are signed with a stable Apple Development identity.
 - 2026-11-23 — Key accepted by Soniox; mic transcription with translation to English observed working.
+- 2026-11-23 — HUD polish: status badge (ready / live + timer / paused / error), icon source picker with built-in level meters, unified buttons; off-screen layout tests. System-audio capture confirmed live.
 - 2026-11-23 — HUD: ✕ button, gear menu (Settings / Hide / Quit); subtitle panel movable + resizable with hover toolbar and shown only during sessions; Dock icon + app icon; defaults translate to English; public GitHub repo with README and MIT license.

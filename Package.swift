@@ -22,7 +22,7 @@ let package = Package(
         .testTarget(name: "TranscriptTests", dependencies: ["Transcript", "SonioxClient"]),
         .testTarget(
             name: "SonioxClientTests",
-            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript"]
+            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript", "ControlHUD"]
         ),
     ]
 )

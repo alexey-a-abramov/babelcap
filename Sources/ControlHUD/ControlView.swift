@@ -65,14 +65,13 @@ public struct ControlView: View {
 
     private var pill: some View {
         HStack(spacing: 10) {
-            StatusDot(state: engine.overall)
-            LevelBar(level: max(engine.levels[.system] ?? 0, engine.levels[.mic] ?? 0)).frame(width: 60)
-            Text(timeString(engine.elapsed)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            Button(action: actions.hidePanel) {
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-            }.buttonStyle(.plain).help("Hide this panel — bring it back from the menu bar / Dock icon or ⌥⌘H")
+            StatusBadge(state: engine.overall, runState: engine.runState, elapsed: engine.elapsed)
+            LevelBar(level: max(engine.levels[.system] ?? 0, engine.levels[.mic] ?? 0), height: 4).frame(width: 44)
+            Spacer(minLength: 0)
+            IconButton(symbol: "xmark", help: "Hide this panel — bring it back from the menu bar / Dock icon or ⌥⌘H",
+                       action: actions.hidePanel)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -87,27 +86,21 @@ public struct ControlView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            StatusDot(state: engine.overall).matchedGeometryEffect(id: "dot", in: ns)
-            Picker("", selection: Binding(get: { settings.profile.sources },
-                                          set: { m in Task { await engine.setSources(m) } })) {
-                ForEach(SourceMode.allCases, id: \.self) { Text($0.title).tag($0) }
+        HStack(spacing: 10) {
+            StatusBadge(state: engine.overall, runState: engine.runState, elapsed: engine.elapsed)
+                .onTapGesture { if case .error = engine.overall { hud.expanded = true } }
+            SourcePicker(selection: settings.profile.sources,
+                         system: engine.levels[.system] ?? 0, mic: engine.levels[.mic] ?? 0,
+                         running: engine.isRunning) { m in
+                hud.touch()
+                Task { await engine.setSources(m) }
             }
-            .pickerStyle(.segmented).labelsHidden().frame(width: 138)
-
-            VStack(spacing: 4) {
-                LevelBar(level: engine.levels[.system] ?? 0).opacity(settings.profile.sources == .mic ? 0.25 : 1)
-                LevelBar(level: engine.levels[.mic] ?? 0).opacity(settings.profile.sources == .system ? 0.25 : 1)
-            }.frame(width: 38)
-
             Spacer(minLength: 0)
             controls
-            Button { hud.expanded.toggle(); hud.touch() } label: {
-                Image(systemName: "chevron.down").rotationEffect(.degrees(hud.expanded ? 180 : 0))
-            }.buttonStyle(.plain).help("History and options")
-            Button(action: actions.hidePanel) {
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-            }.buttonStyle(.plain).help("Hide this panel — bring it back from the menu bar icon or ⌥⌘H")
+            IconButton(symbol: "chevron.down", help: hud.expanded ? "Collapse" : "Options, translation and history",
+                       rotation: hud.expanded ? 180 : 0) { hud.expanded.toggle(); hud.touch() }
+            IconButton(symbol: "xmark", help: "Hide this panel — bring it back from the menu bar / Dock icon or ⌥⌘H",
+                       action: actions.hidePanel)
         }
         .padding(.horizontal, 12)
     }
@@ -116,13 +109,13 @@ public struct ControlView: View {
         switch engine.runState {
         case .idle:
             Button { Task { await engine.start() } } label: { Label("Start", systemImage: "play.fill").labelStyle(.iconOnly) }
-                .buttonStyle(HUDButtonStyle(tint: .green)).help("Start (⌥⌘Space)")
+                .buttonStyle(HUDButtonStyle(tint: .green)).help("Start captions (⌥⌘Space)")
         case .running, .paused:
             Button { Task { await engine.togglePause() } } label: {
                 Image(systemName: engine.runState == .paused ? "play.fill" : "pause.fill")
             }.buttonStyle(HUDButtonStyle(tint: .orange)).help("Pause / resume")
             Button { Task { await engine.stop() } } label: { Image(systemName: "stop.fill") }
-                .buttonStyle(HUDButtonStyle(tint: .red)).help("Stop")
+                .buttonStyle(HUDButtonStyle(tint: Color(white: 0.35))).help("Stop and save the transcript")
         }
     }
 
@@ -367,37 +360,170 @@ public final class ControlOverlayInfo {
     public init() {}
 }
 
-struct StatusDot: View {
+/// One glance tells what the app is doing: ready / connecting / live + timer / paused / sleeping / error.
+struct StatusBadge: View {
     let state: ConnState
+    let runState: RunState
+    let elapsed: TimeInterval
     @State private var pulse = false
-    var color: Color {
-        switch state {
-        case .idle: .gray
-        case .connecting, .reconnecting: .yellow
-        case .live: .green
-        case .autoPaused: .blue
-        case .error: .red
+
+    var body: some View {
+        HStack(spacing: 5) {
+            icon
+            if runState != .idle {
+                Text(Self.short(elapsed)).font(.system(size: 12, weight: .medium).monospacedDigit())
+                    .foregroundStyle(runState == .paused ? .orange : .primary)
+            }
+        }
+        .frame(minWidth: 22, alignment: .leading)
+        .help(helpText)
+        .onAppear { pulse = true }
+    }
+
+    @ViewBuilder private var icon: some View {
+        switch (runState, state) {
+        case (.idle, _):
+            Image(systemName: "captions.bubble").font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
+        case (.paused, _):
+            Image(systemName: "pause.circle.fill").font(.system(size: 13)).foregroundStyle(.orange)
+        case (_, .error):
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 13)).foregroundStyle(.red)
+        case (_, .autoPaused):
+            Image(systemName: "moon.zzz.fill").font(.system(size: 12)).foregroundStyle(.blue)
+        case (_, .connecting), (_, .reconnecting):
+            dot(.yellow)
+        default:
+            dot(.red)
         }
     }
+
+    private func dot(_ c: Color) -> some View {
+        Circle().fill(c).frame(width: 9, height: 9)
+            .shadow(color: c.opacity(0.8), radius: pulse ? 4 : 1)
+            .opacity(pulse ? 1 : 0.55)
+            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulse)
+    }
+
+    private var helpText: String {
+        switch (runState, state) {
+        case (.idle, _): "Ready — press ▶ or ⌥⌘Space to start captions"
+        case (.paused, _): "Paused — audio is not being sent"
+        default: state == .live ? "Live — transcribing" : state.label
+        }
+    }
+
+    static func short(_ t: TimeInterval) -> String {
+        let s = Int(t)
+        return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
+                         : String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+/// System / Mic / Both with icons; the selected segment carries its own live level meter.
+struct SourcePicker: View {
+    let selection: SourceMode
+    let system: Float
+    let mic: Float
+    let running: Bool
+    let onSelect: (SourceMode) -> Void
+    @Namespace private var ns
+
     var body: some View {
-        Circle().fill(color).frame(width: 10, height: 10)
-            .opacity(pulse && (state == .connecting || state == .reconnecting) ? 0.35 : 1)
-            .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
-            .onAppear { pulse = true }
-            .help(state.label)
+        HStack(spacing: 2) {
+            ForEach(SourceMode.allCases, id: \.self) { m in
+                Button { onSelect(m) } label: { segment(m) }
+                    .buttonStyle(.plain)
+                    .help(help(m))
+            }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.black.opacity(0.28)))
+        .animation(.spring(duration: 0.3, bounce: 0.2), value: selection)
+    }
+
+    private func segment(_ m: SourceMode) -> some View {
+        let selected = m == selection
+        return VStack(spacing: 3) {
+            HStack(spacing: 4) {
+                Image(systemName: icon(m)).font(.system(size: 10, weight: .semibold))
+                Text(m.title).font(.system(size: 12, weight: selected ? .semibold : .regular))
+                    .lineLimit(1)
+            }
+            .fixedSize()
+            meter(m)
+                .frame(width: 34)
+                .opacity(selected && running ? 1 : 0)
+        }
+        .foregroundStyle(selected ? .primary : .secondary)
+        .padding(.horizontal, 9).padding(.top, 5).padding(.bottom, 3)
+        .contentShape(Rectangle())
+        .background {
+            if selected {
+                RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(0.16))
+                    .matchedGeometryEffect(id: "sel", in: ns)
+            }
+        }
+    }
+
+    @ViewBuilder private func meter(_ m: SourceMode) -> some View {
+        switch m {
+        case .system: LevelBar(level: system, height: 3)
+        case .mic: LevelBar(level: mic, height: 3)
+        case .both:
+            HStack(spacing: 2) { LevelBar(level: system, height: 3); LevelBar(level: mic, height: 3) }
+        }
+    }
+
+    private func icon(_ m: SourceMode) -> String {
+        switch m { case .system: "speaker.wave.2.fill"; case .mic: "mic.fill"; case .both: "person.2.wave.2.fill" }
+    }
+
+    private func help(_ m: SourceMode) -> String {
+        switch m {
+        case .system: "Caption what your Mac plays (calls, videos) — “Them”"
+        case .mic: "Caption your microphone — “Me”"
+        case .both: "Both, as two separate streams (Them / Me)"
+        }
+    }
+}
+
+/// Small round, low-emphasis icon button used for chevron / close.
+struct IconButton: View {
+    let symbol: String
+    let help: String
+    var rotation: Double = 0
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .bold))
+                .rotationEffect(.degrees(rotation))
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(.white.opacity(hover ? 0.18 : 0.08)))
+                .foregroundStyle(hover ? .primary : .secondary)
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help(help)
     }
 }
 
 struct LevelBar: View {
     let level: Float
+    var height: CGFloat = 5
     var body: some View {
         GeometryReader { g in
             ZStack(alignment: .leading) {
-                Capsule().fill(.secondary.opacity(0.25))
-                Capsule().fill(level > 0.85 ? Color.red : Color.green).frame(width: g.size.width * CGFloat(level))
+                Capsule().fill(.white.opacity(0.12))
+                Capsule()
+                    .fill(LinearGradient(colors: level > 0.85 ? [.orange, .red] : [.green.opacity(0.8), .green],
+                                         startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(0, g.size.width * CGFloat(min(1, level))))
                     .animation(.linear(duration: 0.08), value: level)
             }
-        }.frame(height: 5)
+        }.frame(height: height)
     }
 }
 
@@ -405,10 +531,13 @@ struct HUDButtonStyle: ButtonStyle {
     let tint: Color
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 12, weight: .bold))
             .frame(width: 30, height: 30)
-            .background(Circle().fill(tint.opacity(configuration.isPressed ? 0.55 : 0.85)))
+            .background(Circle().fill(tint.opacity(configuration.isPressed ? 0.6 : 0.9)))
+            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
             .foregroundStyle(.white)
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
