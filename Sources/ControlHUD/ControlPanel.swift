@@ -19,7 +19,7 @@ public final class ControlPanelController {
 
     static let normal = NSSize(width: 380, height: 56)
     static let expanded = NSSize(width: 380, height: 520)
-    static let compact = NSSize(width: 170, height: 40)
+    static let compact = NSSize(width: 200, height: 40)
 
     public init(settings: SettingsStore, engine: CaptionsEngine, store: TranscriptStore, actions: HUDActions) {
         self.engine = engine

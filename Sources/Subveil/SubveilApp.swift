@@ -7,12 +7,23 @@ struct SubveilApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     private let ctx = AppContext.shared
 
+    static func clock(_ t: TimeInterval) -> String {
+        let s = Int(t)
+        return String(format: "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuContent(ctx: ctx)
         } label: {
-            // Always visible while capturing: filled icon.
-            Image(systemName: ctx.engine.isRunning ? "captions.bubble.fill" : "captions.bubble")
+            // Always visible while capturing: filled icon + session timer (h:mm:ss) so a multi-hour session is obvious.
+            HStack(spacing: 4) {
+                Image(systemName: ctx.engine.runState == .paused ? "pause.circle.fill"
+                      : ctx.engine.isRunning ? "captions.bubble.fill" : "captions.bubble")
+                if ctx.engine.isRunning {
+                    Text(Self.clock(ctx.engine.elapsed)).monospacedDigit()
+                }
+            }
         }
         .menuBarExtraStyle(.menu)
 
@@ -39,11 +50,12 @@ struct MenuContent: View {
         }
         Button("Show / hide control panel") { ctx.hud.toggleVisible() }
         Button("Show / hide subtitles") { ctx.overlay.toggleVisible() }
-        Button("Move / resize subtitles") { ctx.toggleEditing() }
+        Button("Position subtitles (preview)") { ctx.togglePositioning() }
+        Button(ctx.settings.profile.layout.clickThrough ? "Make subtitles movable / resizable" : "Make subtitles click-through") { ctx.toggleEditing() }
         Divider()
         Button("Welcome & permissions…") { ctx.showOnboarding() }
         Button("Settings…") { ctx.openSettings() }.keyboardShortcut(",")
         Divider()
-        Button("Quit Subveil") { Task { await e.stop(); NSApp.terminate(nil) } }.keyboardShortcut("q")
+        Button("Quit Subveil") { ctx.quit() }.keyboardShortcut("q")
     }
 }

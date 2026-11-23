@@ -31,9 +31,15 @@ final class AppContext {
             actions: HUDActions(
                 openSettings: { [weak self] in self?.openSettings() },
                 toggleEditing: { [weak self] in self?.toggleEditing() },
-                export: { [weak self] in self?.export($0) }))
+                export: { [weak self] in self?.export($0) },
+                hidePanel: { [weak self] in self?.hud.hide() },
+                quit: { [weak self] in self?.quit() }))
         hud.show()
+        overlay.openSettings = { [weak self] in self?.openSettings() }
         overlay.start()
+        applyDockPolicy()
+        trackDock()
+        trackEngine()
         HotKeys.shared.registerDefaults(self)
         if !settings.onboardingDone || !settings.hasAPIKey { showOnboarding() }
     }
@@ -45,9 +51,52 @@ final class AppContext {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
-    func toggleEditing() {
-        overlay.toggleEditing()
-        hud.overlayInfo.isEditing = overlay.isEditing
+    /// ⌥⌘L / lock button: subtitles movable+resizable  ⇄  click-through.
+    func toggleEditing() { overlay.toggleClickThrough() }
+
+    /// Show the empty subtitle panel while idle so it can be positioned.
+    func togglePositioning() {
+        overlay.preview.toggle()
+        if overlay.preview {
+            settings.profile.layout.showSubtitles = true
+            settings.profile.layout.clickThrough = false
+        }
+    }
+
+    // The subtitle panel exists only while a session runs (and a few seconds after it ends).
+    private var hideTask: Task<Void, Never>?
+
+    private func trackEngine() {
+        withObservationTracking { _ = engine.runState } onChange: { [weak self] in
+            Task { @MainActor in self?.engineStateChanged(); self?.trackEngine() }
+        }
+    }
+
+    private func engineStateChanged() {
+        hideTask?.cancel()
+        if engine.isRunning {
+            overlay.preview = false
+            overlay.isActive = true
+        } else {
+            hideTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { return }
+                self?.overlay.isActive = false
+            }
+        }
+    }
+
+    // MARK: Dock icon (menu bar item is always there)
+
+    func applyDockPolicy() {
+        NSApp.setActivationPolicy(settings.showInDock ? .regular : .accessory)
+        if settings.showInDock { NSApp.applicationIconImage = NSImage(named: "AppIcon") ?? NSApp.applicationIconImage }
+    }
+
+    private func trackDock() {
+        withObservationTracking { _ = settings.showInDock } onChange: { [weak self] in
+            Task { @MainActor in self?.applyDockPolicy(); self?.trackDock() }
+        }
     }
 
     func export(_ format: ExportFormat) {
@@ -65,6 +114,10 @@ final class AppContext {
         panel.begin { resp in
             if resp == .OK, let url = panel.url { try? text.write(to: url, atomically: true, encoding: .utf8) }
         }
+    }
+
+    func quit() {
+        Task { await engine.stop(); NSApp.terminate(nil) }
     }
 
     func cycleSource() {
@@ -100,6 +153,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainActor.assumeIsolated { AppContext.shared.boot() }
     }
+
+    /// Clicking the Dock icon brings the control panel back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainActor.assumeIsolated {
+            AppContext.shared.hud.show()
+            if !AppContext.shared.settings.hasAPIKey { AppContext.shared.showOnboarding() }
+        }
+        return true
+    }
+
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let m = NSMenu()
+        let items: [(String, Selector)] = [("Start / Stop", #selector(dockToggle)), ("Show control panel", #selector(dockShowHUD)),
+                                           ("Settings…", #selector(dockSettings))]
+        for (t, a) in items { let i = NSMenuItem(title: t, action: a, keyEquivalent: ""); i.target = self; m.addItem(i) }
+        return m
+    }
+
+    @objc private func dockToggle() { MainActor.assumeIsolated { Task { await AppContext.shared.engine.toggleStartStop() } } }
+    @objc private func dockShowHUD() { MainActor.assumeIsolated { AppContext.shared.hud.show() } }
+    @objc private func dockSettings() { MainActor.assumeIsolated { AppContext.shared.openSettings() } }
 
     func applicationWillTerminate(_ notification: Notification) {
         // Best effort: persist the history of a running session.

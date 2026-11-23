@@ -231,7 +231,14 @@ private struct LayoutTab: View {
     @Bindable var settings: SettingsStore
     var body: some View {
         Form {
+            Section("App") {
+                Toggle("Show icon in the Dock", isOn: $settings.showInDock)
+                Text("The menu bar icon is always there.").font(.caption).foregroundStyle(.secondary)
+            }
             Section("Layout") {
+                Toggle("Click-through (mouse passes through subtitles)", isOn: $settings.profile.layout.clickThrough)
+                Text("Off: drag the subtitle panel anywhere and pull its corner to resize. On: it never gets in your way.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Picker("Mode", selection: $settings.profile.layout.mode) { ForEach(OverlayMode.allCases, id: \.self) { Text($0.title).tag($0) } }
                 Stepper("Lines: \(settings.profile.layout.lines)", value: $settings.profile.layout.lines, in: 1...4)
                 Slider(value: $settings.profile.layout.width, in: 300...2000) { Text("Width \(Int(settings.profile.layout.width))") }

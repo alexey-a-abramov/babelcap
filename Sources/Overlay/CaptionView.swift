@@ -5,8 +5,37 @@ import Transcript
 
 @MainActor @Observable
 public final class OverlayState {
-    public var isEditing = false
+    /// Panel can be dragged / resized (i.e. NOT click-through).
+    public var isEditing = true
+    /// A session is running (or just ended): the panel is allowed to be on screen.
+    public var isActive = false
+    /// Auto-hide after silence has faded the content out.
+    public var isFaded = false
+    public var onHide: (() -> Void)?
+    public var onToggleClickThrough: (() -> Void)?
+    public var onOpenSettings: (() -> Void)?
+    public var onResizeBegan: (() -> Void)?
+    public var onResizeChanged: (() -> Void)?
+    public var onResizeEnded: (() -> Void)?
     public init() {}
+}
+
+/// Corner grip with its own mouse handling (so the window does not start moving instead of resizing).
+struct ResizeGrip: NSViewRepresentable {
+    let state: OverlayState
+    func makeNSView(context: Context) -> GripView { GripView(state: state) }
+    func updateNSView(_ v: GripView, context: Context) {}
+
+    final class GripView: NSView {
+        let state: OverlayState
+        init(state: OverlayState) { self.state = state; super.init(frame: .zero) }
+        required init?(coder: NSCoder) { fatalError() }
+        override var mouseDownCanMoveWindow: Bool { false }
+        override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
+        override func mouseDown(with event: NSEvent) { MainActor.assumeIsolated { state.onResizeBegan?() } }
+        override func mouseDragged(with event: NSEvent) { MainActor.assumeIsolated { state.onResizeChanged?() } }
+        override func mouseUp(with event: NSEvent) { MainActor.assumeIsolated { state.onResizeEnded?() } }
+    }
 }
 
 func isRTL(_ s: String) -> Bool {
@@ -28,6 +57,7 @@ public struct CaptionView: View {
 
     @State private var lastActivity = Date()
     @State private var faded = false
+    @State private var hovering = false
 
     public init(store: TranscriptStore, settings: SettingsStore, state: OverlayState, filter: SourceKind? = nil, sample: [Segment]? = nil) {
         self.store = store; self.settings = settings; self.state = state; self.filter = filter; self.sample = sample
@@ -41,33 +71,70 @@ public struct CaptionView: View {
 
     public var body: some View {
         let segs = segments
-        Group {
-            switch p.layout.mode {
-            case .feed: feed(segs)
-            default: captions(segs)
+        let shown = visible(segs)
+        ZStack(alignment: .bottom) {
+            Group {
+                if p.layout.mode == .feed { feed(segs) } else { captions(segs) }
             }
-        }
-        .padding(p.appearance.padding)
-        .frame(maxWidth: .infinity, alignment: .bottom)
-        .background(background)
-        .overlay {
-            if state.isEditing {
-                RoundedRectangle(cornerRadius: p.appearance.cornerRadius)
-                    .strokeBorder(.white.opacity(0.8), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(p.appearance.padding)
+            .background(background)
+            .overlay {
+                if state.isEditing && hovering && sample == nil {
+                    RoundedRectangle(cornerRadius: p.appearance.cornerRadius)
+                        .strokeBorder(.white.opacity(0.85), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                }
             }
+            .overlay(alignment: .topTrailing) { if showChrome { toolbar.padding(8) } }
+            .overlay(alignment: .bottomTrailing) { if showChrome { grip.padding(4) } }
         }
-        .opacity(visible(segs) ? 1 : 0)
-        .animation(.easeInOut(duration: 0.4), value: visible(segs))
+        .opacity(shown ? 1 : 0)
+        .animation(.easeInOut(duration: 0.4), value: shown)
+        .onHover { hovering = $0 }
         .onChange(of: signature(segs)) { lastActivity = Date(); faded = false }
+        .onChange(of: faded) { state.isFaded = faded }
         .task(id: p.layout.autoHideSeconds) { await autoHideLoop() }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+
+    private var showChrome: Bool { state.isEditing && hovering && sample == nil && state.isActive }
+
+    private var toolbar: some View {
+        HStack(spacing: 2) {
+            chromeButton("eye.slash", "Hide subtitles (⌥⌘C brings them back)") { state.onHide?() }
+            chromeButton("person.text.rectangle", "Show / hide “Them” and “Me” labels") { settings.profile.content.showSourceLabel.toggle() }
+            chromeButton("cursorarrow.click", "Make click-through (⌥⌘L to move again)") { state.onToggleClickThrough?() }
+            chromeButton("gearshape", "Appearance & settings") { state.onOpenSettings?() }
+        }
+        .padding(4)
+        .background(Capsule().fill(.black.opacity(0.65)))
+    }
+
+    private func chromeButton(_ symbol: String, _ help: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).frame(width: 26, height: 22)
+        }
+        .buttonStyle(.plain).foregroundStyle(.white).help(help)
+    }
+
+    private var grip: some View {
+        ZStack {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 11, weight: .bold)).rotationEffect(.degrees(90))
+                .foregroundStyle(.white.opacity(0.9))
+            ResizeGrip(state: state)
+        }
+        .frame(width: 24, height: 24)
+        .background(Circle().fill(.black.opacity(0.55)))
+        .help("Drag to resize")
     }
 
     private func signature(_ s: [Segment]) -> Int { (s.last?.fullOriginal.count ?? 0) &+ (s.last?.fullTranslation.count ?? 0) &+ s.count }
 
     private func visible(_ s: [Segment]) -> Bool {
-        if state.isEditing || sample != nil { return true }
-        return !s.isEmpty && !faded
+        if sample != nil { return true }
+        guard state.isActive else { return false }          // idle → nothing on screen
+        if s.isEmpty { return state.isEditing }             // placeholder only while it can be moved
+        return !faded || hovering
     }
 
     private func autoHideLoop() async {
@@ -90,13 +157,16 @@ public struct CaptionView: View {
     // MARK: Modes
 
     private func captions(_ segs: [Segment]) -> some View {
-        let tail = Array(segs.suffix(max(1, p.layout.lines)))
-        let st = p.appearance.original
-        let per = (st.size * 1.25 + st.lineSpacing) * (contentMode == .both ? 2 : 1)
+        // Old lines slide out through the top; how many fit is decided by the panel's height.
+        let tail = Array(segs.suffix(12))
         return VStack(spacing: 6) {
+            if tail.isEmpty && sample == nil {
+                Text("Subtitles appear here — drag to move, pull the corner to resize")
+                    .font(.system(size: 15, weight: .medium)).foregroundStyle(.white.opacity(0.6))
+                    .frame(maxWidth: .infinity)
+            }
             ForEach(tail) { row($0) }
         }
-        .frame(maxWidth: .infinity, minHeight: per, maxHeight: per * Double(max(1, p.layout.lines)) + 8, alignment: .bottom)
         .clipped()
         .animation(.spring(duration: 0.3), value: tail.map(\.id))
     }

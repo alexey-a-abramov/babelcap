@@ -19,8 +19,12 @@ public struct HUDActions {
     public var openSettings: () -> Void
     public var toggleEditing: () -> Void
     public var export: (ExportFormat) -> Void
-    public init(openSettings: @escaping () -> Void, toggleEditing: @escaping () -> Void, export: @escaping (ExportFormat) -> Void) {
+    public var hidePanel: () -> Void
+    public var quit: () -> Void
+    public init(openSettings: @escaping () -> Void, toggleEditing: @escaping () -> Void, export: @escaping (ExportFormat) -> Void,
+                hidePanel: @escaping () -> Void, quit: @escaping () -> Void) {
         self.openSettings = openSettings; self.toggleEditing = toggleEditing; self.export = export
+        self.hidePanel = hidePanel; self.quit = quit
     }
 }
 
@@ -64,6 +68,9 @@ public struct ControlView: View {
             StatusDot(state: engine.overall)
             LevelBar(level: max(engine.levels[.system] ?? 0, engine.levels[.mic] ?? 0)).frame(width: 60)
             Text(timeString(engine.elapsed)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            Button(action: actions.hidePanel) {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+            }.buttonStyle(.plain).help("Hide this panel — bring it back from the menu bar / Dock icon or ⌥⌘H")
         }
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -80,13 +87,13 @@ public struct ControlView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             StatusDot(state: engine.overall).matchedGeometryEffect(id: "dot", in: ns)
             Picker("", selection: Binding(get: { settings.profile.sources },
                                           set: { m in Task { await engine.setSources(m) } })) {
                 ForEach(SourceMode.allCases, id: \.self) { Text($0.title).tag($0) }
             }
-            .pickerStyle(.segmented).labelsHidden().frame(width: 150)
+            .pickerStyle(.segmented).labelsHidden().frame(width: 138)
 
             VStack(spacing: 4) {
                 LevelBar(level: engine.levels[.system] ?? 0).opacity(settings.profile.sources == .mic ? 0.25 : 1)
@@ -98,8 +105,11 @@ public struct ControlView: View {
             Button { hud.expanded.toggle(); hud.touch() } label: {
                 Image(systemName: "chevron.down").rotationEffect(.degrees(hud.expanded ? 180 : 0))
             }.buttonStyle(.plain).help("History and options")
+            Button(action: actions.hidePanel) {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+            }.buttonStyle(.plain).help("Hide this panel — bring it back from the menu bar icon or ⌥⌘H")
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
     }
 
     @ViewBuilder private var controls: some View {
@@ -248,9 +258,13 @@ public struct ControlView: View {
             }.labelsHidden().frame(width: 100)
             Button { bumpFont(-2) } label: { Text("A−") }.help("Smaller")
             Button { bumpFont(2) } label: { Text("A+") }.help("Larger")
+            Toggle(isOn: $settings.profile.content.showSourceLabel) { Image(systemName: "person.text.rectangle") }
+                .toggleStyle(.button).help("Show “Them” / “Me” labels in subtitles")
             Button { actions.toggleEditing(); hud.touch() } label: {
-                Image(systemName: overlay.isEditing ? "lock.open.fill" : "lock.fill")
-            }.help(overlay.isEditing ? "Editing: drag / resize subtitles. Click to lock (click-through)" : "Click-through. Click to move / resize subtitles")
+                Image(systemName: settings.profile.layout.clickThrough ? "lock.fill" : "lock.open.fill")
+            }.help(settings.profile.layout.clickThrough
+                   ? "Subtitles are click-through. Click to make them movable / resizable"
+                   : "Subtitles can be dragged and resized. Click to make them click-through")
             Spacer()
         }
     }
@@ -273,7 +287,13 @@ public struct ControlView: View {
             .onChange(of: settings.activeID) {
                 Task { await engine.setSources(settings.profile.sources); await engine.applyConfigChange() }
             }
-            Button(action: actions.openSettings) { Image(systemName: "gearshape") }.buttonStyle(.plain)
+            Menu {
+                Button("Settings…", action: actions.openSettings)
+                Button("Hide panel", action: actions.hidePanel)
+                Divider()
+                Button("Quit Subveil", action: actions.quit)
+            } label: { Image(systemName: "gearshape") }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 28)
         }
     }
 
