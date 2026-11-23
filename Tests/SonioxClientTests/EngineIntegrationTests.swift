@@ -27,6 +27,21 @@ final class FakeCapture: AudioSource, @unchecked Sendable {
     func stop() { timer?.cancel(); timer = nil }
 }
 
+/// A capture that starts fine but never delivers a single sample (what a knocked-out tap looks like).
+final class DeadCapture: AudioSource, @unchecked Sendable {
+    let ring = RingBuffer(capacity: 4800)
+    let sampleRate: Double = 48_000
+    func start() throws {}
+    func stop() {}
+}
+
+final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var n = 0
+    func next() -> Int { lock.lock(); defer { lock.unlock() }; n += 1; return n }
+    var value: Int { lock.lock(); defer { lock.unlock() }; return n }
+}
+
 final class KeychainStoreTests: XCTestCase {
     func testRoundTripAndMissing() {
         Trace.fileEnabled = false
@@ -171,5 +186,18 @@ final class EngineIntegrationTests: XCTestCase {
         await engine.start()
         let stopped = await waitMain(8) { self.engine.runState == .idle && self.engine.needsKey }
         XCTAssertTrue(stopped, "401 should stop capture and ask for a new key")
+    }
+
+    func testWatchdogRebuildsACaptureThatDeliversNothing() async {
+        settings.setAPIKey("k")
+        let server = self.server!
+        let made = Counter()
+        engine.watchdogSeconds = 1
+        engine.captureFactory = { _, _ in made.next() == 1 ? DeadCapture() as any AudioSource : FakeCapture() }
+        await engine.start()
+        let recovered = await waitUntil(10) { server.connections.first?.binaryCount ?? 0 >= 5 }
+        XCTAssertTrue(recovered, "audio should flow after the watchdog replaces the dead capture")
+        XCTAssertGreaterThanOrEqual(made.value, 2, "the dead capture was rebuilt")
+        XCTAssertEqual(server.connections.count, 1, "the Soniox session is kept while the capture is rebuilt")
     }
 }

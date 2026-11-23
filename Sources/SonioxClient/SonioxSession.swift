@@ -105,6 +105,7 @@ public actor SonioxSession {
                 gotData = try await connectAndReceive()
             } catch let e as SonioxError {
                 Trace.log("ws", "server error \(e.code) \(e.message) (\(e.action))")
+                if stopping { break }   // e.g. "400 No audio received" in reply to the closing frame — not a user error
                 if e.isFatal {
                     continuation.yield(.error(e))
                     continuation.yield(.state(.failed))

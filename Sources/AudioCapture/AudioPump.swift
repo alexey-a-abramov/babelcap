@@ -3,6 +3,8 @@ import Foundation
 public struct AudioMeter: Sendable {
     public var rms: Float
     public var peak: Float
+    /// Samples read this tick; 0 means the capture delivered nothing at all (dead tap / stalled engine).
+    public var samples: Int = 0
 }
 
 /// Reads a source's ring every 100 ms, resamples to 16 kHz mono s16le and emits 3200-byte chunks.
@@ -58,7 +60,7 @@ public actor AudioPump {
         scratch.withUnsafeBufferPointer { buf in
             for i in 0..<n { let v = buf[i]; sum += v * v; peak = max(peak, abs(v)) }
         }
-        onMeter(AudioMeter(rms: (sum / Float(n)).squareRoot(), peak: peak))
+        onMeter(AudioMeter(rms: (sum / Float(n)).squareRoot(), peak: peak, samples: n))
 
         let out = scratch.withUnsafeBufferPointer { resampler.convert(UnsafeBufferPointer(rebasing: $0[0..<n])) }
         pending.append(out)

@@ -74,6 +74,11 @@ public final class CaptionsEngine {
 
     @ObservationIgnored private var runtimes: [SourceKind: Runtime] = [:]
     @ObservationIgnored private var meterCounts: [SourceKind: Int] = [:]
+    /// Watchdog bookkeeping per physical source.
+    @ObservationIgnored private var lastSamplesAt: [SourceKind: Date] = [:]
+    @ObservationIgnored private var lastRebuildAt: [SourceKind: Date] = [:]
+    /// Seconds without any samples (or, for the mic, with exact digital silence) before a capture is rebuilt.
+    @ObservationIgnored public var watchdogSeconds: TimeInterval = 4
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var monitor: DeviceMonitor?
     @ObservationIgnored private var zeroSince: [SourceKind: Date] = [:]
@@ -169,7 +174,7 @@ public final class CaptionsEngine {
         for rt in runtimes.values { await teardown(rt) }
         runtimes.removeAll()
         for k in SourceKind.allCases { store.closeOpenSegment(k) }
-        conn.removeAll(); levels.removeAll(); zeroSince.removeAll()
+        conn.removeAll(); levels.removeAll(); zeroSince.removeAll(); lastSamplesAt.removeAll(); lastRebuildAt.removeAll()
         saveHistory()
     }
 
@@ -232,7 +237,11 @@ public final class CaptionsEngine {
         let r = settings.profile.recognition
         if let f = captureFactory { return f(k, r) }
         switch k {
-        case .mic: return MicCapture(deviceUID: r.micDeviceUID, voiceProcessing: r.voiceProcessing)
+        case .mic:
+            // Voice processing reconfigures the audio hardware and knocks out a concurrently running system-audio tap
+            // (observed: one of the two inputs goes silent). Use it only when the mic is the sole capture.
+            let systemToo = runtimes.values.contains { $0.physical.contains(.system) } || desiredKinds().contains(where: { $0 != .mic })
+            return MicCapture(deviceUID: r.micDeviceUID, voiceProcessing: r.voiceProcessing && !systemToo)
         default: return SystemAudioTap(scope: r.appBundleIDs.isEmpty ? .all : .apps(bundleIDs: r.appBundleIDs))
         }
     }
@@ -300,11 +309,31 @@ public final class CaptionsEngine {
             captureErrors[phys] = nil
             await pump.setSource(cap)
             Trace.log("capture", "\(phys.rawValue) started, rate \(cap.sampleRate)")
+            lastSamplesAt[phys] = Date()
         } catch {
             Trace.log("capture", "\(phys.rawValue) FAILED: \(error.localizedDescription)")
             captureErrors[phys] = error.localizedDescription
             lastError = "\(phys == .mic ? "Microphone" : "System audio"): \(error.localizedDescription)"
             log.error("capture \(phys.rawValue) failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Rebuilds a capture that stopped delivering audio — a tap knocked out by another audio client, an engine that
+    /// stalled after a device change, or a mic stuck at exact digital zeros (a real mic always has a noise floor).
+    private func watchdog() async {
+        guard runState == .running else { return }
+        let now = Date()
+        for rt in runtimes.values {
+            for phys in rt.physical where rt.captures[phys] != nil {
+                let starved = now.timeIntervalSince(lastSamplesAt[phys] ?? now) > watchdogSeconds
+                let digitalSilence = phys == .mic && now.timeIntervalSince(zeroSince[.mic] ?? now) > watchdogSeconds + 2
+                guard starved || digitalSilence, now.timeIntervalSince(lastRebuildAt[phys] ?? .distantPast) > 10 else { continue }
+                Trace.log("watchdog", "\(phys.rawValue) \(starved ? "delivers no samples" : "is digitally silent") → rebuilding capture")
+                lastRebuildAt[phys] = now
+                await rebuildCapture(phys, in: rt)
+                lastSamplesAt[phys] = Date()
+                zeroSince[phys] = nil
+            }
         }
     }
 
@@ -427,6 +456,7 @@ public final class CaptionsEngine {
         let norm = Float(max(0, min(1, (db + 60) / 60)))
         levels[physical] = max(norm, (levels[physical] ?? 0) * 0.8)
 
+        if m.samples > 0 { lastSamplesAt[physical] = Date() }
         if m.peak == 0 { zeroSince[physical] = zeroSince[physical] ?? Date() } else { zeroSince[physical] = nil }
         if m.rms > 0.004 {
             rt.lastVoice = Date()
@@ -460,6 +490,8 @@ public final class CaptionsEngine {
         if let z = zeroSince[.system], Date().timeIntervalSince(z) > 8, runtimes.values.contains(where: { $0.physical.contains(.system) }) {
             if n % 3 == 0 { systemPermissionHint = AudioProcessList.current().contains { $0.isRunningOutput } }
         } else if zeroSince[.system] == nil { systemPermissionHint = false }
+
+        await watchdog()
 
         if n % 5 == 0 {
             speakerEchoHint = settings.profile.sources == .both && !settings.profile.session.mixIntoOne
