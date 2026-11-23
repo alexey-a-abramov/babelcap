@@ -3,7 +3,7 @@ import SonioxClient
 
 /// Assembles Soniox tokens of ONE stream into segments.
 ///
-/// Rules (see spec "Сборка текста из токенов"):
+/// Rules (from the product spec, "assembling text from tokens"):
 ///  1. final tokens are appended exactly once;
 ///  2. non-final tokens of each response replace the previous non-final tokens entirely;
 ///  3. original and translation are separate tracks — translation arrives later and is not 1:1 aligned, so it fills

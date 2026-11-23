@@ -1,137 +1,142 @@
-# Subveil — план и TODO
+# Subveil — plan and TODO
 
-Обновлено: 2026-11-23. Легенда: `[x]` сделано и проверено · `[~]` написано, **не проверено вживую** · `[ ]` не сделано.
-Каждый этап можно отдавать отдельному агенту. Порядок этапов — от самого рискованного к менее.
-После этапа: отметить пункты, дописать «Отклонения», закоммитить.
+Updated: 2026-11-23. Legend: `[x]` done and verified · `[~]` written, **not verified on real hardware yet** · `[ ]` not done.
+Each stage can be handed to a separate agent. Stages are ordered from the riskiest to the least risky.
+After finishing a stage: tick the items, update "Deviations from the spec", commit.
 
-## Статус одним взглядом
+## Status at a glance
 
-| Этап | Состояние |
+| Stage | State |
 |---|---|
-| 0. Каркас и тесты | ✅ готово |
-| 1. Спайк: проверка рисков на живом железе | ⏳ **следующий** — ничего не проверено вживую |
-| 2. MVP (меню-бар, ключ, один источник, оверлей, HUD) | 🟡 код есть, нужна проверка |
-| 3. Два источника и перевод | 🟡 код есть, нужна проверка |
-| 4. Панель и кастомизация | 🟡 код есть, нужна полировка и проверка |
-| 5. Надёжность | 🟡 частично |
-| 6. Дистрибуция | ⬜ не начато |
+| 0. Skeleton and tests | ✅ done |
+| 1. Spike: de-risk on real hardware | 🟡 in progress — key, WebSocket, mic transcription and translation seen working; system-audio tap and measurements still open |
+| 2. MVP (menu bar, key, single source, overlay, HUD) | 🟡 code done, needs verification |
+| 3. Two sources and translation | 🟡 code done, needs verification |
+| 4. Control panel and customisation | 🟡 code done, needs polish and verification |
+| 5. Reliability | 🟡 partly done (mock-server tests exist) |
+| 6. Distribution | ⬜ not started |
 
-## Этап 0 — Каркас (готово)
+## Stage 0 — Skeleton (done)
 
-- [x] SwiftPM-пакет, 8 модулей, Swift 6, macOS 14.4+, arm64
-- [x] Юнит-тесты: `TokenAssembler` (final/draft, смена спикера, `<end>`, перевод с отставанием), модели/кодирование конфига Soniox, дедупер, экспорт (11 тестов зелёные)
-- [x] `scripts/build_app.sh` → `build/Subveil.app` (Info.plist, entitlements, hardened runtime, ad-hoc подпись)
-- [x] Приложение запускается, HUD отображается (проверено скриншотом)
+- [x] SwiftPM package, 8 modules, Swift 6, macOS 14.4+, arm64
+- [x] Unit tests: `TokenAssembler` (final/draft, speaker change, `<end>`, lagging translation), Soniox config/response models, echo deduper, exporters, settings migration
+- [x] `scripts/build_app.sh` / `scripts/install_app.sh` → signed `Subveil.app` (Info.plist, entitlements, hardened runtime, app icon)
+- [x] App launches, control panel and subtitle overlay render (checked with screenshots)
 
-## Этап 1 — Спайк: проверить риски на живом железе ⏳
+## Stage 1 — Spike: de-risk on real hardware 🟡
 
-Нужен реальный ключ Soniox и живой звук. Ничего из этого пока не проверено.
+Needs a real Soniox key and live audio.
 
-- [ ] Ввести ключ (онбординг или Settings → Account), «Verify & save» принимает валидный ключ и отклоняет неверный (401)
-- [ ] Окно онбординга действительно появляется при первом запуске *(в скриншоте его не было — возможно, ушло под другие окна; проверить `NSApp.activate` для accessory-приложения)*
-- [ ] **System audio tap**: запрос разрешения появляется, уровень в HUD двигается при воспроизведении, при отказе срабатывает подсказка «тихого отказа»
-- [ ] **Микрофон**: разрешение, выбор устройства, voice processing не ломает захват (проверить на 9-канальном формате VP)
-- [ ] Поток в Soniox: токены приходят, черновик/финал корректно собираются в оверлее
-- [ ] Замеры: задержка до черновика (цель ≤ 500 мс p50), CPU на M1 (< 5% при двух потоках), память (< 150 МБ через 2 ч)
-- [ ] Совместимость tap с App Sandbox (для Mac App Store) — выяснить, записать вывод
-- [ ] Проверить, что `CATapDescription(stereoGlobalTapButExcludeProcesses:)` исключает собственный звук приложения (FR-01)
-- [ ] Записать фактические форматы ответов Soniox (в т.ч. `<end>`/`<fin>`, `translation_status`, поле `speaker`) в `Tests/Fixtures/*.json`
+- [x] Key entry (onboarding or Settings → Account); a valid key is accepted, an invalid one is rejected (401). Key format is `snx_proj_…` (≈147 chars)
+- [x] Stream to Soniox works: tokens arrive, draft/final text is assembled into the overlay
+- [x] Microphone capture + one-way translation to English observed working end to end (screenshot)
+- [x] Overlay renders above other windows
+- [ ] Onboarding window actually appears on first launch *(not seen in an early screenshot — maybe hidden behind other windows; check `NSApp.activate` for an accessory app)*
+- [ ] **System audio tap**: permission prompt appears, HUD level moves during playback, the "silent denial" hint fires when permission is refused
+- [ ] Microphone: device selection; voice processing does not break capture (check the 9-channel VP format)
+- [ ] Measurements: latency to draft (target ≤ 500 ms p50), CPU on M1 (< 5% with two streams), memory (< 150 MB after 2 h)
+- [ ] Tap compatibility with App Sandbox (Mac App Store) — find out and record the answer
+- [ ] Verify that `CATapDescription(stereoGlobalTapButExcludeProcesses:)` excludes the app's own audio (FR-01)
+- [ ] Record real Soniox responses (incl. `<end>` / `<fin>`, `translation_status`, `speaker`) into `Tests/Fixtures/*.json`
+- [ ] Overlay above full-screen Zoom/video and in other Spaces
 
-## Этап 2 — MVP
+## Stage 2 — MVP
 
-- [x] MenuBarExtra, `LSUIElement` (без иконки в Dock)
-- [x] Ключ в Keychain + проверка при вводе (FR-08) — *код, см. этап 1*
-- [~] Один источник на выбор, Start/Stop, уровень в HUD
-- [~] Оверлей Captions: NSPanel, `.statusBar`, `canJoinAllSpaces/fullScreenAuxiliary/stationary`, click-through (FR-06)
-- [~] Онбординг из 3 шагов с живым уровнем (FR-09)
-- [ ] Проверить оверлей поверх полноэкранного Zoom/видео и в других Spaces
+- [x] MenuBarExtra with session timer
+- [x] Key in Keychain + live verification on entry (FR-08)
+- [~] Single source selectable, Start/Stop, level meter in the HUD
+- [~] Captions overlay: NSPanel, `.statusBar`, `canJoinAllSpaces/fullScreenAuxiliary/stationary` (FR-06)
+- [~] 3-step onboarding with live level meters (FR-09)
 
-## Этап 3 — Два источника и перевод
+## Stage 3 — Two sources and translation
 
-- [~] Параллельные сессии system/mic, метки «Them»/«Me» (FR-03)
-- [~] Переключение источника/микрофона/приложений на лету без потери истории (FR-04): пересборка только захвата
-- [~] Перевод one_way/two_way отдельно по источникам, режим Dual (FR-11)
-- [~] Смена языка/контекста → новая сессия открывается до закрытия старой
-- [~] Voice processing + дедупликация эха (FR-20) — порог `EchoDeduper` (Jaccard 0.6) подобрать на реальных данных
-- [~] Mix into one stream (`ChunkMixer`) — проверить дрейф/синхронность двух потоков
-- [ ] AGC/нормализация для тихого сигнала на многоканальных устройствах (риск из спеки)
+- [~] Parallel system/mic sessions, "Them"/"Me" labels (FR-03)
+- [~] Switch source / mic / apps live without losing history (FR-04): only capture is rebuilt
+- [~] One-way / two-way translation per source, Dual mode (FR-11); default is everything → English
+- [~] Changing language/context opens the new session before closing the old one
+- [~] Voice processing + echo de-duplication (FR-20) — tune the `EchoDeduper` threshold (Jaccard 0.6) on real data
+- [~] Mix into one stream (`ChunkMixer`) — check drift / sync between the two inputs
+- [ ] AGC / normalisation for quiet signal on multichannel devices (risk from the spec)
 
-## Этап 4 — Панель и кастомизация
+## Stage 4 — Control panel and customisation
 
-- [~] HUD: капсула 380×56, pill после 8 с простоя, раскрытие с историей/поиском/копированием/экспортом (FR-07)
-- [~] Выбор приложений (per-process tap) с иконками (FR-12); сохраняются bundle ID
-- [~] Настройки: Typography, Colors, Layout, Content, Recognition, Translation, Session, Profiles, Account — с живым превью (FR-10)
-- [~] Режимы Captions / Feed / Dual / Split by source (FR-13)
-- [~] Профили с контекстом (термины, домен, глоссарий перевода), импорт/экспорт JSON (FR-15), пресеты
-- [~] Глобальные хоткеи через `RegisterEventHotKey` (FR-16) — **фиксированные** (⌥⌘Space/P/H/C/L/S/T/K)
-- [ ] Хоткеи настраиваемые (KeyboardShortcuts от sindresorhus) — сейчас не подключено
-- [ ] Цвета по спикерам (сейчас только по источнику Them/Me), метка языка — довести (FR-14)
-- [ ] Fade-in на уровне токена (сейчас анимация на уровне сегмента)
-- [ ] Выбор дисплея, запоминание позиции HUD/оверлея *на каждый* дисплей, «следовать за активным экраном» (FR-21)
-- [ ] Учёт Reduce Motion / Reduce Transparency в SwiftUI-анимациях (в панели HUD Reduce Motion учтён)
-- [ ] Хоткей раскрытия/сворачивания HUD; перетаскивание с прилипанием к краям/углам
-- [ ] Проверить окно Settings из accessory-приложения (`showSettingsWindow:` + `NSApp.activate`)
+- [~] HUD: 380×56 capsule, compact pill after 8 s idle (with ✕), expandable with history / search / copy / export (FR-07)
+- [~] App picker (per-process tap) with icons (FR-12); bundle IDs are stored
+- [~] Settings: Typography, Colors, Layout, Content, Recognition, Translation, Session, Profiles, Account — with live preview (FR-10)
+- [~] Modes Captions / Feed / Dual / Split by source (FR-13)
+- [~] Profiles with context (terms, domain, translation glossary), JSON import/export (FR-15), presets
+- [~] Subtitle panel: movable and resizable by default, hover toolbar, click-through option, shown only while a session runs
+- [~] Dock icon (setting), Dock menu, app icon
+- [~] Global hotkeys via `RegisterEventHotKey` (FR-16) — **fixed** (⌥⌘Space/P/H/C/L/S/T/K)
+- [ ] Configurable hotkeys (sindresorhus/KeyboardShortcuts) — not wired
+- [ ] Per-speaker colours (currently by source Them/Me only), language tag polish (FR-14)
+- [ ] Token-level fade-in (currently segment-level animation)
+- [ ] Display choice, remembering HUD/overlay position *per display*, "follow active screen" (FR-21)
+- [ ] Honour Reduce Motion / Reduce Transparency in SwiftUI animations (HUD resizing already honours Reduce Motion)
+- [ ] Hotkey to expand/collapse the HUD; snapping to edges/corners
+- [ ] Verify the Settings window from an accessory-policy app (`showSettingsWindow:` + `NSApp.activate`)
+- [ ] Verify dragging / corner-resize of the subtitle panel on real hardware (the grip uses its own `NSView` mouse handling)
 
-## Этап 5 — Надёжность
+## Stage 5 — Reliability
 
-- [~] Reconnect с backoff, keepalive ping, коды ошибок 401/402/408/413/429/5xx (FR-17)
-- [~] Ротация сессии на 290-й минуте
-- [~] Пересоздание tap/engine при смене устройства вывода, сне/пробуждении (`DeviceMonitor`)
-- [~] Автопауза по тишине + счётчик минут и стоимости (FR-18)
-- [~] История в `~/Library/Application Support/Subveil/History`, экспорт MD/SRT/JSON (FR-19)
-- [ ] **Mock WebSocket-сервер** + тесты обрыва, 408/413/429, reconnect, replay (из спеки)
-- [ ] WAV-фикстуры для тестов `Resampler`/`AudioPump`
-- [ ] Ручной чек-лист: AirPods ↔ динамики, сон/пробуждение, полноэкранный Zoom, два монитора, отказ в разрешении
-- [ ] Тест 2-часовой сессии: утечки памяти, дрейф, CPU
+- [~] Reconnect with backoff, keepalive ping, error codes 401/402/408/413/429/5xx (FR-17)
+- [~] Session rotation at minute 290
+- [~] Rebuild tap/engine on output-device change and sleep/wake (`DeviceMonitor`)
+- [~] Auto-pause on silence + minutes and cost counter (FR-18)
+- [~] History in `~/Library/Application Support/Subveil/History`, export MD/SRT/JSON (FR-19)
+- [x] Mock WebSocket server + tests for 401, 429, reconnect, replay (see "Diagnostics and tests")
+- [ ] Mock-server tests for 408 / 413
+- [ ] WAV fixtures for `Resampler` / `AudioPump` tests
+- [ ] Manual checklist: AirPods ↔ speakers, sleep/wake, full-screen Zoom, two monitors, permission denied
+- [ ] 2-hour soak test: memory leaks, drift, CPU
 
-## Этап 6 — Дистрибуция
+## Stage 6 — Distribution
 
-- [ ] Developer ID подпись, hardened runtime (включён), notarization, DMG
+- [ ] Developer ID signing, hardened runtime (already on), notarization, DMG
 - [ ] Sparkle 2 (FR-23)
-- [ ] Иконка приложения; финальное имя (открытый вопрос)
-- [ ] Юридическое напоминание в онбординге есть — проверить формулировку
+- [x] App icon; [ ] final product name (open question)
+- [ ] Review the recording-consent reminder wording in onboarding
 
-## Отклонения от спецификации (осознанные)
+## Deviations from the spec (deliberate)
 
-1. **Reconnect** реализован как *новая* сессия Soniox + replay аудио с последней финализированной позиции
-   (`absFinalMs`), а не через `reconnect_url`/`reconnect_token`/`last_seq` — детали протокола не были проверены.
-   `enable_reconnect` в конфиг не отправляется. Если протокол подтвердится — перейти на него (меньше потерь, не занимает слот).
-2. **RingBuffer** — не строго lock-free: `os_unfair_lock` с `try_lock` на стороне producer (при коллизии сэмплы отбрасываются, поток не блокируется).
-3. **Хоткеи** фиксированные, без библиотеки KeyboardShortcuts.
-4. **История** — JSON-файлы, не SwiftData/SQLite.
-5. Добавлены модули `CaptionsCore`, `AppSettings`; `SettingsView` в app-таргете.
-6. Не реализованы: Sparkle, TTS (FR-22), настраиваемые хоткеи, follow-active-screen.
-7. Перевод привязывается к сегментам собственным курсором (перевод не выровнен 1:1 с оригиналом) — эвристика, проверить на живых ответах.
+1. **Reconnect** is implemented as a *new* Soniox session + audio replay from the last finalised position
+   (`absFinalMs`), not via `reconnect_url` / `reconnect_token` / `last_seq` — the protocol details were not verified.
+   `enable_reconnect` is not sent. If the protocol is confirmed, switch to it (less loss, no extra concurrency slot).
+2. **RingBuffer** is not strictly lock-free: `os_unfair_lock` with `try_lock` on the producer side (on contention samples are dropped, the audio thread never blocks).
+3. **Hotkeys** are fixed, without the KeyboardShortcuts library.
+4. **History** is JSON files, not SwiftData/SQLite.
+5. Extra modules `CaptionsCore` and `AppSettings`; `SettingsView` lives in the app target (it needs `CaptionView` for the live preview).
+6. Not implemented: Sparkle, TTS (FR-22), configurable hotkeys, follow-active-screen.
+7. Translation is attached to segments by its own cursor (it is not aligned 1:1 with the original) — a heuristic, verify on real responses.
+8. Defaults differ from the spec: everything is translated to English out of the box, the Dock icon is shown (setting), "Them/Me" labels are off, the subtitle panel is movable (not click-through) by default.
 
-## Открытые вопросы продукта (из спеки)
+## Open product questions (from the spec)
 
-- [ ] Распространение: себе / Developer ID / Mac App Store?
-- [ ] BYOK для всех или свой бэкенд с временными ключами?
-- [ ] Минимальная macOS: 14.4 (сейчас) или 15+?
-- [ ] Режим по умолчанию: два потока или один смешанный?
-- [ ] Языковые пары и профили первого запуска (сейчас: Default, Call RU↔EN, Meetup HE→EN, Video EN→RU)
-- [ ] Хранить ли историю по умолчанию и сколько дней (сейчас: хранится, без срока)
-- [ ] Автопауза: через сколько минут тишины (сейчас: 5)
-- [ ] Финальное название (Subveil — рабочее; «Live Captions» занято системной функцией)
-- [ ] Озвучка перевода (Soniox TTS) и саммари встречи через LLM — нужны ли
+- [ ] Distribution: personal use / Developer ID / Mac App Store?
+- [ ] BYOK for everyone, or a backend with temporary Soniox keys and billing later?
+- [ ] Minimum macOS: 14.4 (now) or 15+?
+- [ ] Default mode: two streams or one mixed stream?
+- [ ] First-run language pairs and profiles (now: Default (→ English), Call RU↔EN, Meetup HE→EN, Video EN→RU)
+- [ ] Keep history by default and for how many days (now: kept, no expiry)
+- [ ] Auto-pause: after how many minutes of silence (now: 5)
+- [ ] Final name (Subveil is a working title; "Live Captions" is taken by a macOS feature)
+- [ ] Translation voice-over (Soniox TTS) and LLM meeting summaries — wanted later?
 
-## Диагностика и автотесты
+## Diagnostics and tests
 
-- Трассировка: `~/Library/Logs/Subveil/trace.log` (+ `log stream --predicate 'subsystem == "app.subveil"'`). Пишутся состояния, коды, счётчики, уровни — **без ключа и без текста транскрипта**. Смотреть: `tail -f ~/Library/Logs/Subveil/trace.log`.
-- Автотесты (`swift test`, 22 теста): сборка токенов; модели Soniox; `SonioxSession` против локального мок-WebSocket (Bearer-заголовок, конфиг без `api_key`, 401 без реконнекта, 429 с backoff, reconnect + replay + сдвиг таймстемпов); движок целиком с фейковым захватом (старт, поток аудио, транскрипт, пауза/возобновление, смена перевода без потери истории, 401, отсутствие ключа); Keychain (изолированный service).
-- [x] Mock WebSocket-сервер и тесты обрыва/401/429/reconnect (был пункт этапа 5)
-- [ ] Тесты UI/онбординга (нужен XCUITest или снапшоты), тест `SystemAudioTap`/`MicCapture` на железе (нельзя в CI)
+- Trace log: `~/Library/Logs/Subveil/trace.log` (also `log stream --predicate 'subsystem == "app.subveil"'`). It records states, codes, counters and levels — **never the API key or transcript text**. Follow it with `tail -f ~/Library/Logs/Subveil/trace.log`.
+- Automated tests (`swift test`, 24 tests): token assembly; Soniox models; `SonioxSession` against a local mock WebSocket server (Bearer header, config without `api_key`, 401 without reconnect, 429 backoff, reconnect + replay + timestamp offset); the whole engine with a fake capture (start, audio flow, transcript, pause/resume, translation change without losing history, 401, missing key); Keychain (isolated service name); settings defaults and migration.
+- [ ] UI / onboarding tests (XCUITest or snapshots); `SystemAudioTap` / `MicCapture` tests on hardware (not possible in CI)
 
-## Репозиторий / README
+## Repository / README
 
-- [x] Публичный репозиторий https://github.com/alexey-a-abramov/subveil, README на английском
-- [ ] Скриншоты в README (`docs/images/`): перевод в субтитрах (оригинал + English), переключение System/Mic/Both в HUD, раскрытый HUD, настройки внешнего вида
-- [x] Лицензия MIT
+- [x] Public repository https://github.com/alexey-a-abramov/subveil, README in English, MIT license
+- [ ] README screenshots (`docs/images/`): translation in subtitles (original + English), System/Mic/Both switching in the HUD, expanded HUD, appearance settings
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
-## Журнал
+## Log
 
-- 2026-11-23 — найдена причина «API key required»: запись, созданная `security add-generic-password`, требует диалога доступа Keychain; чтение на старте блокировало приложение. Чтение ключа вынесено с main-потока, наличие ключа проверяется без диалога. Сборка подписывается Apple Development-сертификатом (стабильные Keychain/TCC-разрешения).
-- 2026-11-23 — HUD: кнопка «×» (скрыть, вернуть: меню-бар или ⌥⌘H), меню шестерёнки: Settings / Hide / Quit.
-
-- 2026-11-23 — этап 0: каркас, все модули, тесты, сборка `.app`, запуск. Живые проверки (этап 1) не проводились.
+- 2026-11-23 — Stage 0: skeleton, all modules, tests, `.app` build, launch.
+- 2026-11-23 — Root cause of "API key required": an item created with `security add-generic-password` triggers a Keychain access dialog, and the read on launch blocked the app. The key is now read off the main thread, existence is checked without a prompt, and builds are signed with a stable Apple Development identity.
+- 2026-11-23 — Key accepted by Soniox; mic transcription with translation to English observed working.
+- 2026-11-23 — HUD: ✕ button, gear menu (Settings / Hide / Quit); subtitle panel movable + resizable with hover toolbar and shown only during sessions; Dock icon + app icon; defaults translate to English; public GitHub repo with README and MIT license.
