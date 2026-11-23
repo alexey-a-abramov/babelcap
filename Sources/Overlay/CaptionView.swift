@@ -168,7 +168,7 @@ public struct CaptionView: View {
         HStack(spacing: 2) {
             chromeButton("eye.slash", "Hide subtitles (⌥⌘C brings them back)") { state.onHide?() }
             chromeButton("person.text.rectangle", "Show / hide “Them” and “Me” labels") { settings.profile.content.showSourceLabel.toggle() }
-            chromeButton("cursorarrow.click", "Make click-through (⌥⌘L to move again)") { state.onToggleClickThrough?() }
+            chromeButton("cursorarrow.click", "Click-through: clicks go to the app underneath. Hold ⌘ to move it anyway (⌥⌘L toggles)") { state.onToggleClickThrough?() }
             chromeButton("gearshape", "Appearance & settings") { state.onOpenSettings?() }
         }
         .padding(4)

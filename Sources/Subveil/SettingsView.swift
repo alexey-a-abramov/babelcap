@@ -237,7 +237,7 @@ private struct LayoutTab: View {
             }
             Section("Layout") {
                 Toggle("Click-through (mouse passes through subtitles)", isOn: $settings.profile.layout.clickThrough)
-                Text("Off: drag the subtitle panel anywhere and pull its corner to resize. On: it never gets in your way.")
+                Text("Off: drag the subtitle panel anywhere and resize it from any edge. On: clicks pass through it — hold ⌘ to move it anyway.")
                     .font(.caption).foregroundStyle(.secondary)
                 Picker("Mode", selection: $settings.profile.layout.mode) { ForEach(OverlayMode.allCases, id: \.self) { Text($0.title).tag($0) } }
                 Stepper("Lines: \(settings.profile.layout.lines)", value: $settings.profile.layout.lines, in: 1...4)

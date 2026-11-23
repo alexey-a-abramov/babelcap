@@ -66,6 +66,7 @@ public final class OverlayController {
     public func start() {
         rebuild()
         track()
+        watchCommandKey()
     }
 
     /// true = the panel can be moved / resized.
@@ -123,7 +124,8 @@ public final class OverlayController {
     private func apply() {
         if (settings.profile.layout.mode == .split) != splitMode { rebuild(); return }
         let l = settings.profile.layout
-        let editing = !l.clickThrough
+        // Click-through can always be overridden by holding ⌘ over the panel.
+        let editing = !l.clickThrough || commandOverride || gesture != nil
         state.isEditing = editing
         state.isActive = isActive || preview
 
@@ -138,7 +140,7 @@ public final class OverlayController {
                 p.setFrame(f, display: true)
             }
 
-            p.ignoresMouseEvents = !editing || state.isFaded
+            p.ignoresMouseEvents = !editing || (state.isFaded && !commandOverride)
             if editing { p.styleMask.insert(.resizable) } else { p.styleMask.remove(.resizable) }
             p.level = switch l.level {
             case .statusBar: .statusBar
@@ -148,6 +150,30 @@ public final class OverlayController {
             p.sharingType = l.hideFromSharing ? .none : .readOnly
             _ = key
             if l.showSubtitles && (isActive || preview) { p.orderFrontRegardless() } else { p.orderOut(nil) }
+        }
+    }
+
+    // MARK: ⌘ override for click-through
+
+    private var commandOverride = false
+    private var commandTask: Task<Void, Never>?
+
+    /// Polls the modifier state (no Accessibility permission needed): while ⌘ is held with the pointer over a
+    /// click-through panel, the panel accepts the mouse so it can be dragged or resized.
+    private func watchCommandKey() {
+        commandTask?.cancel()
+        commandTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(80))
+                guard let self else { return }
+                let visible = panels.values.contains { $0.isVisible }
+                let over = panels.values.contains { $0.frame.insetBy(dx: -4, dy: -4).contains(NSEvent.mouseLocation) }
+                let want = visible && settings.profile.layout.clickThrough && over && NSEvent.modifierFlags.contains(.command)
+                if want != commandOverride, gesture == nil {
+                    commandOverride = want
+                    apply()
+                }
+            }
         }
     }
 
@@ -181,6 +207,7 @@ public final class OverlayController {
     private func moveEnded() {
         if gesture != nil { NSCursor.pop() }
         gesture = nil
+        apply()
     }
 
     private func resizeBegan(_ edges: ResizeEdges) {
@@ -210,5 +237,6 @@ public final class OverlayController {
     private func resizeEnded() {
         if let g = gesture, !splitMode { settings.profile.layout.width = g.panel.frame.width }
         gesture = nil
+        apply()
     }
 }
