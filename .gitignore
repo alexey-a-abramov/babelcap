@@ -1,0 +1,8 @@
+.build/
+.swiftpm/
+data/
+logs/
+*.app
+.DS_Store
+.env
+build/

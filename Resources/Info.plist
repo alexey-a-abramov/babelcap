@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>Subveil</string>
+    <key>CFBundleDisplayName</key><string>Subveil</string>
+    <key>CFBundleIdentifier</key><string>app.subveil.Subveil</string>
+    <key>CFBundleExecutable</key><string>Subveil</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>0.1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>LSMinimumSystemVersion</key><string>14.4</string>
+    <key>LSUIElement</key><true/>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Subveil transcribes your voice from the microphone into live captions.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>Subveil transcribes system audio (calls, videos) into live captions.</string>
+</dict>
+</plist>
