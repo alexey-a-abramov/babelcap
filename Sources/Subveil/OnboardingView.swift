@@ -58,7 +58,7 @@ struct OnboardingView: View {
     private var micStep: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Microphone").font(.title2.bold())
-            Text("Needed for your own voice (the “Me” stream). Skip it if you only caption system audio.").foregroundStyle(.secondary)
+            Text("Needed for your own voice (the “Mic” stream). Skip it if you only caption system audio.").foregroundStyle(.secondary)
             Button("Allow & test microphone") { Task { await probe.start(.mic) } }
             levelRow
         }

@@ -5,8 +5,8 @@ public enum SourceKind: String, Codable, Sendable, CaseIterable, Hashable {
     case system, mic, mixed
     public var label: String {
         switch self {
-        case .system: "Them"
-        case .mic: "Me"
+        case .system: "System"
+        case .mic: "Mic"
         case .mixed: "Mixed"
         }
     }

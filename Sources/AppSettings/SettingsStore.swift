@@ -65,7 +65,7 @@ public final class SettingsStore {
                 for i in loaded.indices where loaded[i].name.hasPrefix("Default") { loaded[i].content.mode = .translation }
             }
             if (s.schemaVersion ?? 1) < 2 {
-                // v2: translate everything to English by default; "Them/Me" labels off by default.
+                // v2: translate everything to English by default; "System/Mic" labels off by default.
                 for i in loaded.indices where loaded[i].name == "Default" {
                     loaded[i].name = "Default (→ English)"
                     if loaded[i].translationSystem.kind == .off { loaded[i].translationSystem = .init(kind: .oneWay, target: "en") }

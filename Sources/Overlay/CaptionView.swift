@@ -122,7 +122,7 @@ public struct CaptionView: View {
             .overlay(alignment: .topLeading) {
                 // Separate panels say whose words they show.
                 if let f = filter, sample == nil {
-                    Text(f == .mic ? "ME" : "THEM").font(.system(size: 10, weight: .bold)).tracking(1)
+                    Text(f == .mic ? "MIC" : "SYSTEM").font(.system(size: 10, weight: .bold)).tracking(1)
                         .foregroundStyle(.white.opacity(0.45)).padding(8)
                 }
             }
@@ -177,11 +177,11 @@ public struct CaptionView: View {
             chromeButton("eye.slash", "Hide subtitles (⌥⌘C brings them back)") { state.onHide?() }
             if p.sources == .both && !p.session.mixIntoOne {
                 chromeButton(p.layout.separateSources ? "rectangle.compress.vertical" : "rectangle.split.2x1",
-                             p.layout.separateSources ? "Merge “Them” and “Me” into one panel" : "Split into two panels: “Them” and “Me”") {
+                             p.layout.separateSources ? "Merge “System” and “Mic” into one panel" : "Split into two panels: “System” and “Mic”") {
                     state.onToggleSplit?()
                 }
             }
-            chromeButton("person.text.rectangle", "Show / hide “Them” and “Me” labels") { settings.profile.content.showSourceLabel.toggle() }
+            chromeButton("person.text.rectangle", "Show / hide “System” and “Mic” labels") { settings.profile.content.showSourceLabel.toggle() }
             chromeButton("cursorarrow.click", "Click-through: clicks go to the app underneath. Hold ⌘ to move it anyway (⌥⌘L toggles)") { state.onToggleClickThrough?() }
             chromeButton("gearshape", "Appearance & settings") { state.onOpenSettings?() }
         }

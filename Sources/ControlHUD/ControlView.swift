@@ -222,8 +222,8 @@ public struct ControlView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Translation").font(.caption).foregroundStyle(.secondary)
             HStack {
-                if settings.profile.sources != .mic { translationMenu("Them", $settings.profile.translationSystem) }
-                if settings.profile.sources != .system { translationMenu("Me", $settings.profile.translationMic) }
+                if settings.profile.sources != .mic { translationMenu("System", $settings.profile.translationSystem) }
+                if settings.profile.sources != .system { translationMenu("Mic", $settings.profile.translationMic) }
             }
         }
     }
@@ -257,7 +257,7 @@ public struct ControlView: View {
             Button { bumpFont(-2) } label: { Text("A−") }.help("Smaller")
             Button { bumpFont(2) } label: { Text("A+") }.help("Larger")
             Toggle(isOn: $settings.profile.content.showSourceLabel) { Image(systemName: "person.text.rectangle") }
-                .toggleStyle(.button).help("Show “Them” / “Me” labels in subtitles")
+                .toggleStyle(.button).help("Show “System” / “Mic” labels in subtitles")
             Button { actions.toggleEditing(); hud.touch() } label: {
                 Image(systemName: settings.profile.layout.clickThrough ? "lock.fill" : "lock.open.fill")
             }.help(settings.profile.layout.clickThrough
@@ -487,9 +487,9 @@ struct SourcePicker: View {
 
     private func help(_ m: SourceMode) -> String {
         switch m {
-        case .system: "Caption what your Mac plays (calls, videos) — “Them”"
-        case .mic: "Caption your microphone — “Me”"
-        case .both: "Both, as two separate streams (Them / Me)"
+        case .system: "Caption what your Mac plays (calls, videos)"
+        case .mic: "Caption your microphone"
+        case .both: "System and Mic as two separate streams"
         }
     }
 }

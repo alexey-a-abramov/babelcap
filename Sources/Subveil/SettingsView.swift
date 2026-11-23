@@ -150,8 +150,8 @@ private struct TranslationTab: View {
     @Bindable var settings: SettingsStore
     var body: some View {
         Form {
-            editor("System audio (“Them”)", $settings.profile.translationSystem)
-            editor("Microphone (“Me”)", $settings.profile.translationMic)
+            editor("System audio", $settings.profile.translationSystem)
+            editor("Microphone", $settings.profile.translationMic)
             Text("Translation runs inside the same Soniox session. Changing it opens a new session before closing the old one.")
                 .font(.caption).foregroundStyle(.secondary)
         }.formStyle(.grouped)
@@ -193,7 +193,7 @@ private struct AppearanceTab: View {
                 textSection("Translation text", $settings.profile.appearance.translation)
                 Section("Colors & background") {
                     color("Text", \.textColor); color("Translation", \.translationColor); color("Draft", \.draftColor)
-                    color("“Them”", \.themColor); color("“Me”", \.meColor); color("Background", \.backgroundColor)
+                    color("System text", \.themColor); color("Mic text", \.meColor); color("Background", \.backgroundColor)
                     Toggle("Color by source", isOn: $settings.profile.appearance.speakerColors)
                     Toggle("Blur behind", isOn: $settings.profile.appearance.useBlur)
                     Toggle("Shadow", isOn: $settings.profile.appearance.shadow)
@@ -240,7 +240,7 @@ private struct LayoutTab: View {
                 Text("Off: drag the subtitle panel anywhere and resize it from any edge. On: clicks pass through it — hold ⌘ to move it anyway.")
                     .font(.caption).foregroundStyle(.secondary)
                 Picker("Mode", selection: $settings.profile.layout.mode) { ForEach(OverlayMode.selectable, id: \.self) { Text($0.title).tag($0) } }
-                Toggle("Both mode: separate panels for “Them” and “Me”", isOn: $settings.profile.layout.separateSources)
+                Toggle("Both mode: separate panels for “System” and “Mic”", isOn: $settings.profile.layout.separateSources)
                 Stepper("Lines: \(settings.profile.layout.lines)", value: $settings.profile.layout.lines, in: 1...4)
                 Slider(value: $settings.profile.layout.width, in: 300...2000) { Text("Width \(Int(settings.profile.layout.width))") }
                 Picker("Alignment", selection: $settings.profile.layout.alignment) {
@@ -254,7 +254,7 @@ private struct LayoutTab: View {
             }
             Section("Content") {
                 Picker("Show", selection: $settings.profile.content.mode) { ForEach(ContentDisplay.allCases, id: \.self) { Text($0.title).tag($0) } }
-                Toggle("Source label (Them / Me)", isOn: $settings.profile.content.showSourceLabel)
+                Toggle("Source label (System / Mic)", isOn: $settings.profile.content.showSourceLabel)
                 Toggle("Speaker number", isOn: $settings.profile.content.showSpeaker)
                 Toggle("Language", isOn: $settings.profile.content.showLanguage)
                 Toggle("Timestamp", isOn: $settings.profile.content.showTimestamp)

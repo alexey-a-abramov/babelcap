@@ -14,7 +14,7 @@ The product was specified as "Live Captions for macOS" (23 Nov 2026); the workin
 - Swift 6 (strict concurrency); SwiftUI for settings/HUD/overlay content, AppKit for windows. No Objective-C, Electron or Tauri.
 - System audio: `CATapDescription` + `AudioHardwareCreateProcessTap` + private aggregate device. No BlackHole.
 - Microphone: `AVAudioEngine`, optional voice processing with minimal ducking.
-- Two independent Soniox streams (system "Them" / mic "Me"); optional "Mix into one stream" (`.mixed`).
+- Two independent Soniox streams (labelled "System" / "Mic"); optional "Mix into one stream" (`.mixed`).
 - Translation is the `translation` block of the same Soniox session (one_way / two_way) — no separate service.
   Default: everything is translated to English.
 - The API key lives only in the Keychain and is sent as `Authorization: Bearer` — **not** `api_key` in the config.

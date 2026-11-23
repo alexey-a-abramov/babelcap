@@ -16,7 +16,7 @@ final class SettingsMigrationTests: XCTestCase {
         let p = s.profile
         XCTAssertEqual(p.translationSystem, TranslationSettings(kind: .oneWay, target: "en"))
         XCTAssertEqual(p.translationMic, TranslationSettings(kind: .oneWay, target: "en"))
-        XCTAssertFalse(p.content.showSourceLabel, "Them/Me labels are opt-in")
+        XCTAssertFalse(p.content.showSourceLabel, "System/Mic labels are opt-in")
         XCTAssertFalse(p.layout.clickThrough, "subtitle panel is draggable/resizable by default")
         XCTAssertTrue(s.showInDock)
         XCTAssertEqual(p.content.mode, .translation, "only the target language is shown by default")

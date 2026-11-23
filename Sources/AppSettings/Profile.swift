@@ -77,7 +77,7 @@ public struct LayoutSettings: Codable, Hashable, Sendable {
     public var showSubtitles = true
     /// false (default): the subtitle panel can be dragged / resized; true: mouse clicks pass through it.
     public var clickThrough = false
-    /// In Both mode, show "Them" and "Me" in two separate panels (default) instead of one combined panel.
+    /// In Both mode, show "System" and "Mic" in two separate panels (default) instead of one combined panel.
     public var separateSources = true
     public init() {}
 
@@ -106,7 +106,7 @@ public struct LayoutSettings: Codable, Hashable, Sendable {
 public struct ContentSettings: Codable, Hashable, Sendable {
     /// Default: show only the target language (no foreign-language text when translation is on).
     public var mode: ContentDisplay = .translation
-    /// "Them" / "Me" prefix. Off by default — turn on when you want to see who is speaking.
+    /// "System" / "Mic" prefix. Off by default — turn on when you want to see who is speaking.
     public var showSourceLabel = false
     public var showSpeaker = false
     public var showLanguage = false
@@ -184,7 +184,7 @@ public struct Profile: Codable, Hashable, Sendable, Identifiable {
 
     public func translation(for s: SourceKind) -> TranslationSettings { s == .mic ? translationMic : translationSystem }
 
-    /// Two subtitle panels ("Them" / "Me") are shown only when both sources run as separate streams.
+    /// Two subtitle panels ("System" / "Mic") are shown only when both sources run as separate streams.
     public var showsSeparatePanels: Bool { sources == .both && !session.mixIntoOne && layout.separateSources }
 
     public static var presets: [Profile] {

@@ -30,7 +30,7 @@ public final class CaptionPanel: NSPanel {
     }
 }
 
-/// Owns the subtitle window(s): one for Captions/Feed/Dual, two ("Them" / "Me") for Split.
+/// Owns the subtitle window(s): one for Captions/Feed/Dual, two ("System" / "Mic") for Split.
 ///
 /// - The panel is draggable and resizable by default; "click-through" turns both off.
 /// - It is on screen only while a session is active (or while `preview` is on), so it never lingers.

@@ -51,14 +51,14 @@ Needs a real Soniox key and live audio.
 
 ## Stage 3 — Two sources and translation
 
-- [~] Parallel system/mic sessions, "Them"/"Me" labels (FR-03)
+- [~] Parallel system/mic sessions, "System"/"Mic" labels (FR-03)
 - [~] Switch source / mic / apps live without losing history (FR-04): only capture is rebuilt
 - [~] One-way / two-way translation per source, Dual mode (FR-11); default is everything → English
 - [~] Changing language/context opens the new session before closing the old one
 - [~] Voice processing + echo de-duplication (FR-20) — tune the `EchoDeduper` threshold (Jaccard 0.6) on real data
 - [~] Mix into one stream (`ChunkMixer`) — check drift / sync between the two inputs
 - [x] Both mode stability: voice processing knocked out the concurrent system tap (one input went silent, Soniox "400 No audio received"). VP is now used only when the mic is the sole capture; a watchdog rebuilds any capture that delivers no samples (or a mic stuck at digital zeros) without dropping the Soniox session
-- [~] Both mode shows "Them" and "Me" in separate panels by default; split / merge button on the subtitle toolbar
+- [~] Both mode shows "System" and "Mic" in separate panels by default; split / merge button on the subtitle toolbar
 - [ ] AGC / normalisation for quiet signal on multichannel devices (risk from the spec)
 
 ## Stage 4 — Control panel and customisation
@@ -72,7 +72,7 @@ Needs a real Soniox key and live audio.
 - [~] Dock icon (setting), Dock menu, app icon
 - [~] Global hotkeys via `RegisterEventHotKey` (FR-16) — **fixed** (⌥⌘Space/P/H/C/L/S/T/K)
 - [ ] Configurable hotkeys (sindresorhus/KeyboardShortcuts) — not wired
-- [ ] Per-speaker colours (currently by source Them/Me only), language tag polish (FR-14)
+- [ ] Per-speaker colours (currently by source System/Mic only), language tag polish (FR-14)
 - [ ] Token-level fade-in (currently segment-level animation)
 - [ ] Display choice, remembering HUD/overlay position *per display*, "follow active screen" (FR-21)
 - [ ] Honour Reduce Motion / Reduce Transparency in SwiftUI animations (HUD resizing already honours Reduce Motion)
@@ -112,7 +112,7 @@ Needs a real Soniox key and live audio.
 6. Not implemented: Sparkle, TTS (FR-22), configurable hotkeys, follow-active-screen.
 7. Translation is attached to segments by its own cursor (it is not aligned 1:1 with the original) — a heuristic, verify on real responses.
 8. Voice processing is disabled while system audio is captured at the same time (it conflicts with the tap); echo is handled by headphones + de-duplication.
-9. Defaults differ from the spec: everything is translated to English out of the box, the Dock icon is shown (setting), "Them/Me" labels are off, the subtitle panel is movable (not click-through) by default.
+9. Defaults differ from the spec: everything is translated to English out of the box, the Dock icon is shown (setting), "System/Mic" labels are off, the subtitle panel is movable (not click-through) by default.
 
 ## Open product questions (from the spec)
 
@@ -141,7 +141,7 @@ Needs a real Soniox key and live audio.
 
 ## Log
 
-- 2026-11-23 — Both mode: VP/tap conflict found in traces and fixed, capture watchdog, separate Them/Me panels by default with split/merge toggle.
+- 2026-11-23 — Both mode: VP/tap conflict found in traces and fixed, capture watchdog, separate System/Mic panels by default with split/merge toggle.
 
 - 2026-11-23 — Subtitles show only the target language by default; fixed-size panel (lines fade out at the top), drag anywhere with snapping, resize from any edge; no history by default; simplified README around use cases.
 
