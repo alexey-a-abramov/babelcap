@@ -55,6 +55,7 @@ public final class OverlayController {
         state.onHide = { [weak self] in self?.settings.profile.layout.showSubtitles = false }
         state.onToggleClickThrough = { [weak self] in self?.toggleClickThrough() }
         state.onOpenSettings = { [weak self] in self?.openSettings?() }
+        state.onToggleSplit = { [weak self] in self?.settings.profile.layout.separateSources.toggle() }
         state.onMoveBegan = { [weak self] in self?.moveBegan() }
         state.onMoveChanged = { [weak self] in self?.moveChanged() }
         state.onMoveEnded = { [weak self] in self?.moveEnded() }
@@ -78,6 +79,8 @@ public final class OverlayController {
     private func track() {
         withObservationTracking {
             _ = settings.profile.layout
+            _ = settings.profile.sources
+            _ = settings.profile.session.mixIntoOne
             _ = settings.profile.appearance.original.size
             _ = settings.profile.content.mode
             _ = state.isFaded
@@ -89,7 +92,7 @@ public final class OverlayController {
     // MARK: Panels
 
     private func rebuild() {
-        splitMode = settings.profile.layout.mode == .split
+        splitMode = settings.profile.showsSeparatePanels
         let wanted: [(String, SourceKind?)] = splitMode ? [("system", .system), ("mic", .mic)] : [("main", nil)]
         for (k, p) in panels where !wanted.contains(where: { $0.0 == k }) { p.orderOut(nil); panels[k] = nil }
         for (key, filter) in wanted where panels[key] == nil {
@@ -122,7 +125,7 @@ public final class OverlayController {
     }
 
     private func apply() {
-        if (settings.profile.layout.mode == .split) != splitMode { rebuild(); return }
+        if settings.profile.showsSeparatePanels != splitMode { rebuild(); return }
         let l = settings.profile.layout
         // Click-through can always be overridden by holding ⌘ over the panel.
         let editing = !l.clickThrough || commandOverride || gesture != nil
@@ -132,8 +135,9 @@ public final class OverlayController {
         // The panel keeps the size the user gave it — text scrolls inside, the panel never grows.
         // Only the Width slider in Settings changes it (and only when it differs).
         for (key, p) in panels {
-            let targetW = splitMode ? min(l.width, 640) : l.width
-            if gesture == nil, abs(p.frame.width - targetW) > 0.5 {
+            // Separate panels each keep their own size; the combined panel follows the Width setting.
+            let targetW = l.width
+            if !splitMode, gesture == nil, abs(p.frame.width - targetW) > 0.5 {
                 var f = p.frame
                 f.origin.x = f.midX - targetW / 2
                 f.size.width = targetW

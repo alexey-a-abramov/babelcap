@@ -57,6 +57,8 @@ Needs a real Soniox key and live audio.
 - [~] Changing language/context opens the new session before closing the old one
 - [~] Voice processing + echo de-duplication (FR-20) — tune the `EchoDeduper` threshold (Jaccard 0.6) on real data
 - [~] Mix into one stream (`ChunkMixer`) — check drift / sync between the two inputs
+- [x] Both mode stability: voice processing knocked out the concurrent system tap (one input went silent, Soniox "400 No audio received"). VP is now used only when the mic is the sole capture; a watchdog rebuilds any capture that delivers no samples (or a mic stuck at digital zeros) without dropping the Soniox session
+- [~] Both mode shows "Them" and "Me" in separate panels by default; split / merge button on the subtitle toolbar
 - [ ] AGC / normalisation for quiet signal on multichannel devices (risk from the spec)
 
 ## Stage 4 — Control panel and customisation
@@ -109,7 +111,8 @@ Needs a real Soniox key and live audio.
 5. Extra modules `CaptionsCore` and `AppSettings`; `SettingsView` lives in the app target (it needs `CaptionView` for the live preview).
 6. Not implemented: Sparkle, TTS (FR-22), configurable hotkeys, follow-active-screen.
 7. Translation is attached to segments by its own cursor (it is not aligned 1:1 with the original) — a heuristic, verify on real responses.
-8. Defaults differ from the spec: everything is translated to English out of the box, the Dock icon is shown (setting), "Them/Me" labels are off, the subtitle panel is movable (not click-through) by default.
+8. Voice processing is disabled while system audio is captured at the same time (it conflicts with the tap); echo is handled by headphones + de-duplication.
+9. Defaults differ from the spec: everything is translated to English out of the box, the Dock icon is shown (setting), "Them/Me" labels are off, the subtitle panel is movable (not click-through) by default.
 
 ## Open product questions (from the spec)
 
@@ -137,6 +140,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-23 — Both mode: VP/tap conflict found in traces and fixed, capture watchdog, separate Them/Me panels by default with split/merge toggle.
 
 - 2026-11-23 — Subtitles show only the target language by default; fixed-size panel (lines fade out at the top), drag anywhere with snapping, resize from any edge; no history by default; simplified README around use cases.
 

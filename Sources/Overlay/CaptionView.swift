@@ -13,6 +13,7 @@ public final class OverlayState {
     public var isFaded = false
     public var onHide: (() -> Void)?
     public var onToggleClickThrough: (() -> Void)?
+    public var onToggleSplit: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
     public var onMoveBegan: (() -> Void)?
     public var onMoveChanged: (() -> Void)?
@@ -118,6 +119,13 @@ public struct CaptionView: View {
                 }
             }
             .overlay(alignment: .topTrailing) { if showChrome { toolbar.padding(8) } }
+            .overlay(alignment: .topLeading) {
+                // Separate panels say whose words they show.
+                if let f = filter, sample == nil {
+                    Text(f == .mic ? "ME" : "THEM").font(.system(size: 10, weight: .bold)).tracking(1)
+                        .foregroundStyle(.white.opacity(0.45)).padding(8)
+                }
+            }
             .overlay(alignment: .bottomTrailing) { if showChrome { grip.padding(4) } }
         }
         .opacity(shown ? 1 : 0)
@@ -167,6 +175,12 @@ public struct CaptionView: View {
     private var toolbar: some View {
         HStack(spacing: 2) {
             chromeButton("eye.slash", "Hide subtitles (⌥⌘C brings them back)") { state.onHide?() }
+            if p.sources == .both && !p.session.mixIntoOne {
+                chromeButton(p.layout.separateSources ? "rectangle.compress.vertical" : "rectangle.split.2x1",
+                             p.layout.separateSources ? "Merge “Them” and “Me” into one panel" : "Split into two panels: “Them” and “Me”") {
+                    state.onToggleSplit?()
+                }
+            }
             chromeButton("person.text.rectangle", "Show / hide “Them” and “Me” labels") { settings.profile.content.showSourceLabel.toggle() }
             chromeButton("cursorarrow.click", "Click-through: clicks go to the app underneath. Hold ⌘ to move it anyway (⌥⌘L toggles)") { state.onToggleClickThrough?() }
             chromeButton("gearshape", "Appearance & settings") { state.onOpenSettings?() }
@@ -296,7 +310,7 @@ public struct CaptionView: View {
         var out = AttributedString()
         var meta: [String] = []
         if p.content.showTimestamp { meta.append(s.createdAt.formatted(date: .omitted, time: .standard)) }
-        if p.content.showSourceLabel, filter == nil || p.layout.mode == .split { meta.append(s.source.label) }
+        if p.content.showSourceLabel, filter == nil { meta.append(s.source.label) }
         if p.content.showSpeaker, let sp = s.speaker { meta.append("#\(sp)") }
         if p.content.showLanguage, let l = s.language { meta.append(l.uppercased()) }
         if !meta.isEmpty {

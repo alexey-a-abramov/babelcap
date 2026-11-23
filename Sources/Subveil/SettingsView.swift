@@ -137,7 +137,7 @@ private struct RecognitionTab: View {
             }
             Section("Microphone") {
                 Toggle("Voice processing (echo cancellation)", isOn: $settings.profile.recognition.voiceProcessing)
-                Text("Subtracts speaker output from the mic. Turn it off for a studio mic with headphones — it can quieten other audio (ducking).")
+                Text("Subtracts speaker output from the mic. Used only when the mic is the only source: together with system audio it conflicts with the system-audio capture, so in Both mode use headphones instead.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped)
@@ -239,7 +239,8 @@ private struct LayoutTab: View {
                 Toggle("Click-through (mouse passes through subtitles)", isOn: $settings.profile.layout.clickThrough)
                 Text("Off: drag the subtitle panel anywhere and resize it from any edge. On: clicks pass through it — hold ⌘ to move it anyway.")
                     .font(.caption).foregroundStyle(.secondary)
-                Picker("Mode", selection: $settings.profile.layout.mode) { ForEach(OverlayMode.allCases, id: \.self) { Text($0.title).tag($0) } }
+                Picker("Mode", selection: $settings.profile.layout.mode) { ForEach(OverlayMode.selectable, id: \.self) { Text($0.title).tag($0) } }
+                Toggle("Both mode: separate panels for “Them” and “Me”", isOn: $settings.profile.layout.separateSources)
                 Stepper("Lines: \(settings.profile.layout.lines)", value: $settings.profile.layout.lines, in: 1...4)
                 Slider(value: $settings.profile.layout.width, in: 300...2000) { Text("Width \(Int(settings.profile.layout.width))") }
                 Picker("Alignment", selection: $settings.profile.layout.alignment) {

@@ -54,4 +54,25 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(s.profile.content.mode, .translation)
         XCTAssertTrue(s.onboardingDone == seed.onboardingDone, "other settings survive the migration")
     }
+
+    func testSeparatePanelsOnlyForTwoSeparateStreams() {
+        var p = Profile(name: "x")
+        XCTAssertTrue(p.layout.separateSources, "split by default")
+        p.sources = .system
+        XCTAssertFalse(p.showsSeparatePanels)
+        p.sources = .both
+        XCTAssertTrue(p.showsSeparatePanels)
+        p.session.mixIntoOne = true
+        XCTAssertFalse(p.showsSeparatePanels, "a mixed stream has nothing to split")
+        p.session.mixIntoOne = false
+        p.layout.separateSources = false
+        XCTAssertFalse(p.showsSeparatePanels)
+    }
+
+    func testLegacySplitModeDecodesAsCaptionsWithSeparatePanels() throws {
+        let json = #"{"mode":"split","lines":3,"width":900,"alignment":"center","level":"statusBar","autoHideSeconds":0,"hideFromSharing":false,"showSubtitles":true}"#
+        let l = try JSONDecoder().decode(LayoutSettings.self, from: Data(json.utf8))
+        XCTAssertEqual(l.mode, .captions)
+        XCTAssertTrue(l.separateSources)
+    }
 }

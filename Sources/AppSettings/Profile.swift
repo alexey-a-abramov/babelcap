@@ -32,6 +32,8 @@ public struct TextStyle: Codable, Hashable, Sendable {
 
 public enum OverlayMode: String, Codable, CaseIterable, Sendable { case captions, feed, dual, split
     public var title: String { rawValue.capitalized }
+    /// `.split` is legacy — splitting by source is now `LayoutSettings.separateSources`.
+    public static var selectable: [OverlayMode] { [.captions, .feed, .dual] }
 }
 public enum ContentDisplay: String, Codable, CaseIterable, Sendable { case original, translation, both
     public var title: String {
@@ -75,10 +77,12 @@ public struct LayoutSettings: Codable, Hashable, Sendable {
     public var showSubtitles = true
     /// false (default): the subtitle panel can be dragged / resized; true: mouse clicks pass through it.
     public var clickThrough = false
+    /// In Both mode, show "Them" and "Me" in two separate panels (default) instead of one combined panel.
+    public var separateSources = true
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case mode, lines, width, alignment, level, autoHideSeconds, hideFromSharing, showSubtitles, clickThrough
+        case mode, lines, width, alignment, level, autoHideSeconds, hideFromSharing, showSubtitles, clickThrough, separateSources
     }
 
     /// Tolerant decoding: profiles saved by older versions lack newer keys.
@@ -94,6 +98,8 @@ public struct LayoutSettings: Codable, Hashable, Sendable {
         hideFromSharing = try c.decodeIfPresent(Bool.self, forKey: .hideFromSharing) ?? hideFromSharing
         showSubtitles = try c.decodeIfPresent(Bool.self, forKey: .showSubtitles) ?? showSubtitles
         clickThrough = try c.decodeIfPresent(Bool.self, forKey: .clickThrough) ?? clickThrough
+        separateSources = try c.decodeIfPresent(Bool.self, forKey: .separateSources) ?? separateSources
+        if mode == .split { mode = .captions; separateSources = true }   // legacy split mode
     }
 }
 
@@ -177,6 +183,9 @@ public struct Profile: Codable, Hashable, Sendable, Identifiable {
     public init(name: String) { self.name = name }
 
     public func translation(for s: SourceKind) -> TranslationSettings { s == .mic ? translationMic : translationSystem }
+
+    /// Two subtitle panels ("Them" / "Me") are shown only when both sources run as separate streams.
+    public var showsSeparatePanels: Bool { sources == .both && !session.mixIntoOne && layout.separateSources }
 
     public static var presets: [Profile] {
         var call = Profile(name: "Call RU↔EN")
