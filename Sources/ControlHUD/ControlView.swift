@@ -3,6 +3,7 @@ import AppSettings
 import AudioCapture
 import CaptionsCore
 import SonioxClient
+import SharedUI
 import SwiftUI
 import Transcript
 
@@ -67,6 +68,7 @@ public struct ControlView: View {
         HStack(spacing: 10) {
             StatusBadge(state: engine.overall, runState: engine.runState, elapsed: engine.elapsed)
             LevelBar(level: max(engine.levels[.system] ?? 0, engine.levels[.mic] ?? 0), height: 4).frame(width: 44)
+                .tip("Audio level")
             Spacer(minLength: 0)
             IconButton(symbol: "xmark", help: "Hide this panel — bring it back from the menu bar / Dock icon or ⌥⌘H",
                        action: actions.hidePanel)
@@ -114,13 +116,13 @@ public struct ControlView: View {
         switch engine.runState {
         case .idle:
             Button { Task { await engine.start() } } label: { Label("Start", systemImage: "play.fill").labelStyle(.iconOnly) }
-                .buttonStyle(HUDButtonStyle(tint: .green)).help("Start captions (⌥⌘Space)")
+                .buttonStyle(HUDButtonStyle(tint: .green)).tip("Start captions (⌥⌘Space)")
         case .running, .paused:
             Button { Task { await engine.togglePause() } } label: {
                 Image(systemName: engine.runState == .paused ? "play.fill" : "pause.fill")
-            }.buttonStyle(HUDButtonStyle(tint: .orange)).help("Pause / resume")
+            }.buttonStyle(HUDButtonStyle(tint: .orange)).tip("Pause / resume")
             Button { Task { await engine.stop() } } label: { Image(systemName: "stop.fill") }
-                .buttonStyle(HUDButtonStyle(tint: Color(white: 0.35))).help("Stop and save the transcript")
+                .buttonStyle(HUDButtonStyle(tint: Color(white: 0.35))).tip("Stop and save the transcript")
         }
     }
 
@@ -169,15 +171,18 @@ public struct ControlView: View {
                 } label: {
                     Label(micName, systemImage: "mic.fill").lineLimit(1)
                 }
+                .tip("Microphone input — new devices appear here as soon as they are connected")
                 Button { showApps.toggle() } label: {
                     Label(appsSummary, systemImage: "app.badge").lineLimit(1)
                 }
                 .popover(isPresented: $showApps) { appsPopover }
+                .tip("Which apps to caption: all system audio, or only the apps you pick (e.g. just the browser)")
             }
             Toggle("Mix into one stream", isOn: Binding(get: { settings.profile.session.mixIntoOne },
                                                         set: { v in Task { await engine.setMix(v) } }))
                 .toggleStyle(.switch).controlSize(.small)
                 .disabled(settings.profile.sources != .both)
+                .tip("Both mode: send System and Mic as one combined stream instead of two separate ones")
         }
     }
 
@@ -245,22 +250,24 @@ public struct ControlView: View {
             case .twoWay: Text("\(title) \(b.wrappedValue.languageA.uppercased())↔\(b.wrappedValue.languageB.uppercased())")
             }
         }
+        .tip("Translation for \(title): off, one-way into one language, or two-way between two languages")
     }
 
     private var displayRow: some View {
         HStack(spacing: 10) {
             Toggle(isOn: $settings.profile.layout.showSubtitles) { Image(systemName: "captions.bubble") }
-                .toggleStyle(.button).help("Show / hide subtitles")
+                .toggleStyle(.button).tip("Show / hide subtitles")
             Picker("", selection: $settings.profile.content.mode) {
                 ForEach(ContentDisplay.allCases, id: \.self) { Text($0.title).tag($0) }
             }.labelsHidden().frame(width: 100)
-            Button { bumpFont(-2) } label: { Text("A−") }.help("Smaller")
-            Button { bumpFont(2) } label: { Text("A+") }.help("Larger")
+            .tip("What subtitles show: only the target language, the original, or both")
+            Button { bumpFont(-2) } label: { Text("A−") }.tip("Smaller subtitle text")
+            Button { bumpFont(2) } label: { Text("A+") }.tip("Larger subtitle text")
             Toggle(isOn: $settings.profile.content.showSourceLabel) { Image(systemName: "person.text.rectangle") }
-                .toggleStyle(.button).help("Show “System” / “Mic” labels in subtitles")
+                .toggleStyle(.button).tip("Show “System” / “Mic” labels in subtitles")
             Button { actions.toggleEditing(); hud.touch() } label: {
                 Image(systemName: settings.profile.layout.clickThrough ? "lock.fill" : "lock.open.fill")
-            }.help(settings.profile.layout.clickThrough
+            }.tip(settings.profile.layout.clickThrough
                    ? "Subtitles are click-through (hold ⌘ to drag them anyway). Click to make them movable / resizable"
                    : "Subtitles can be dragged and resized. Click to make them click-through")
             Spacer()
@@ -275,13 +282,15 @@ public struct ControlView: View {
 
     private var sessionRow: some View {
         HStack {
-            Text(timeString(engine.elapsed)).monospacedDigit()
+            Text(timeString(engine.elapsed)).monospacedDigit().tip("Session time")
             Text(String(format: "≈ $%.2f", engine.estimatedCost)).monospacedDigit().foregroundStyle(.secondary)
+                .tip("Estimated Soniox cost of this session (billed by session time)")
             Spacer()
             Text(engine.overall.label).foregroundStyle(.secondary).lineLimit(1)
             Menu {
                 Picker("Profile", selection: $settings.activeID) { ForEach(settings.profiles) { Text($0.name).tag($0.id) } }
             } label: { Label(settings.profile.name, systemImage: "person.crop.rectangle") }
+            .tip("Profile — languages, translation, look and context saved together")
             .onChange(of: settings.activeID) {
                 Task { await engine.setSources(settings.profile.sources); await engine.applyConfigChange() }
             }
@@ -292,6 +301,7 @@ public struct ControlView: View {
                 Button("Quit Subveil", action: actions.quit)
             } label: { Image(systemName: "gearshape") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 28)
+            .tip("Settings, hide this panel, quit")
         }
     }
 
@@ -301,11 +311,13 @@ public struct ControlView: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 TextField("Search history", text: $search).textFieldStyle(.roundedBorder)
-                Button { copy(items) } label: { Image(systemName: "doc.on.doc") }.help("Copy visible")
+                    .tip("Search this session's text")
+                Button { copy(items) } label: { Image(systemName: "doc.on.doc") }.tip("Copy the visible text")
                 Menu {
                     ForEach(ExportFormat.allCases, id: \.self) { f in Button(f.title) { actions.export(f) } }
                 } label: { Image(systemName: "square.and.arrow.up") }.menuStyle(.borderlessButton).frame(width: 30)
-                Button { store.clear() } label: { Image(systemName: "trash") }.help("Clear history")
+                    .tip("Export this session as Markdown, SRT or JSON")
+                Button { store.clear() } label: { Image(systemName: "trash") }.tip("Clear this session's text")
             }
             ScrollViewReader { proxy in
                 ScrollView {
@@ -383,7 +395,7 @@ struct StatusBadge: View {
         }
         .fixedSize()                     // never squeeze the timer into a column
         .frame(minWidth: 22, alignment: .leading)
-        .help(helpText)
+        .tip(helpText)
         .onAppear { pulse = true }
     }
 
@@ -440,7 +452,7 @@ struct SourcePicker: View {
             ForEach(SourceMode.allCases, id: \.self) { m in
                 Button { onSelect(m) } label: { segment(m) }
                     .buttonStyle(.plain)
-                    .help(help(m))
+                    .tip(help(m))
             }
         }
         .padding(3)
@@ -515,7 +527,7 @@ struct IconButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .help(help)
+        .tip(help)
     }
 }
 

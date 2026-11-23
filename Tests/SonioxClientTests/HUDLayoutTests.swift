@@ -6,6 +6,7 @@ import XCTest
 @testable import CaptionsCore
 @testable import ControlHUD
 @testable import Overlay
+@testable import SharedUI
 
 /// Renders HUD pieces off-screen. Guards against labels wrapping ("Syst em") and the header overflowing.
 /// Set SNAPSHOT_DIR to also write PNGs for a visual check.
@@ -77,5 +78,14 @@ final class HUDLayoutTests: XCTestCase {
             .frame(width: 900, height: 180)
         let size = render(view, name: "captions-fixed")
         XCTAssertEqual(size, CGSize(width: 900, height: 180), "the caption box must not grow with its content")
+    }
+
+    func testTooltipWrapsLongTextAtAReadableWidth() {
+        let short = render(TooltipLabel(text: "Session time"), name: "tip-short")
+        let long = render(TooltipLabel(text: "Subtitles are click-through (hold ⌘ to drag them anyway). Click to make them movable / resizable"),
+                          name: "tip-long")
+        XCTAssertLessThan(short.width, 120)
+        XCTAssertLessThanOrEqual(long.width, 320, "long tooltips wrap instead of running off screen")
+        XCTAssertGreaterThan(long.height, short.height)
     }
 }

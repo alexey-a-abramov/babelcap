@@ -1,5 +1,6 @@
 import AppSettings
 import SonioxClient
+import SharedUI
 import SwiftUI
 import Transcript
 
@@ -195,7 +196,7 @@ public struct CaptionView: View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).frame(width: 26, height: 22)
         }
-        .buttonStyle(.plain).foregroundStyle(.white).help(help)
+        .buttonStyle(.plain).foregroundStyle(.white).tip(help)
     }
 
     private var grip: some View {
@@ -207,7 +208,7 @@ public struct CaptionView: View {
         }
         .frame(width: 24, height: 24)
         .background(Circle().fill(.black.opacity(0.55)))
-        .help("Drag to resize")
+        .tip("Drag to resize")
     }
 
     private func signature(_ s: [Segment]) -> Int { (s.last?.fullOriginal.count ?? 0) &+ (s.last?.fullTranslation.count ?? 0) &+ s.count }

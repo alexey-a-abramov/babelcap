@@ -13,8 +13,9 @@ let package = Package(
         .target(name: "Transcript", dependencies: ["SonioxClient"]),
         .target(name: "AppSettings", dependencies: ["SonioxClient"]),
         .target(name: "CaptionsCore", dependencies: ["AudioCapture", "SonioxClient", "Transcript", "AppSettings"]),
-        .target(name: "Overlay", dependencies: ["Transcript", "AppSettings", "SonioxClient"]),
-        .target(name: "ControlHUD", dependencies: ["CaptionsCore", "AppSettings", "Transcript", "AudioCapture", "SonioxClient"]),
+        .target(name: "SharedUI"),
+        .target(name: "Overlay", dependencies: ["Transcript", "AppSettings", "SonioxClient", "SharedUI"]),
+        .target(name: "ControlHUD", dependencies: ["CaptionsCore", "AppSettings", "Transcript", "AudioCapture", "SonioxClient", "SharedUI"]),
         .executableTarget(
             name: "Subveil",
             dependencies: ["AudioCapture", "SonioxClient", "Transcript", "AppSettings", "CaptionsCore", "Overlay", "ControlHUD"]
@@ -22,7 +23,7 @@ let package = Package(
         .testTarget(name: "TranscriptTests", dependencies: ["Transcript", "SonioxClient"]),
         .testTarget(
             name: "SonioxClientTests",
-            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript", "ControlHUD", "Overlay"]
+            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript", "ControlHUD", "Overlay", "SharedUI"]
         ),
     ]
 )
