@@ -42,6 +42,26 @@ final class Counter: @unchecked Sendable {
     var value: Int { lock.lock(); defer { lock.unlock() }; return n }
 }
 
+final class MicSelectionTests: XCTestCase {
+    func testBuiltInByDefaultAndFallbackWhenUnplugged() {
+        let all = ["builtin-uid", "usb-uid", "hdmi-uid"]
+        XCTAssertEqual(MicSelection.deviceUID(for: nil, builtIn: "builtin-uid", available: all), "builtin-uid",
+                       "default = built-in, never the HDMI/default input")
+        XCTAssertNil(MicSelection.deviceUID(for: MicSelection.systemDefault, builtIn: "builtin-uid", available: all),
+                     "opt-in: follow the macOS default input")
+        XCTAssertEqual(MicSelection.deviceUID(for: "usb-uid", builtIn: "builtin-uid", available: all), "usb-uid")
+        XCTAssertEqual(MicSelection.deviceUID(for: "usb-uid", builtIn: "builtin-uid", available: ["builtin-uid"]), "builtin-uid",
+                       "an unplugged chosen mic falls back to the built-in one")
+    }
+
+    func testThisMacHasABuiltInMic() throws {
+        // Hardware check (skipped on Macs without one, e.g. Mac mini / CI).
+        guard let uid = AudioDevices.builtInInputUID() else { throw XCTSkip("no built-in microphone") }
+        XCTAssertFalse(uid.isEmpty)
+        print("built-in mic: \(AudioDevices.inputDevices().first { $0.uid == uid }?.name ?? uid)")
+    }
+}
+
 final class KeychainStoreTests: XCTestCase {
     func testRoundTripAndMissing() {
         Trace.fileEnabled = false
@@ -250,9 +270,14 @@ final class EngineIntegrationTests: XCTestCase {
         await engine.handleDevice(.devicesChanged)       // HDMI's audio device appears in the list
         XCTAssertEqual(count(.system), 2); XCTAssertEqual(count(.mic), 1)
 
-        await engine.handleDevice(.inputChanged)         // default input changed → default mic follows
-        XCTAssertEqual(count(.mic), 2)
+        await engine.handleDevice(.inputChanged)         // HDMI/dock became the macOS default input
+        XCTAssertEqual(count(.mic), 1, "the built-in mic (default) ignores default-input changes")
         XCTAssertEqual(count(.system), 2)
+
+        await engine.setMicDevice(MicSelection.systemDefault)   // opt in to following the macOS default
+        let afterOptIn = count(.mic)
+        await engine.handleDevice(.inputChanged)
+        XCTAssertEqual(count(.mic), afterOptIn + 1, "a mic set to follow the default input does follow it")
 
         XCTAssertEqual(server.connections.count, 2, "Soniox sessions survive device changes")
         let flowing = await waitUntil(5) { server.connections.allSatisfy { $0.binaryCount >= 5 } }

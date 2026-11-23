@@ -71,6 +71,14 @@ public enum AudioDevices {
         }
     }
 
+    /// The Mac's own microphone (transport type "built-in"), if it has one.
+    public static func builtInInputUID() -> String? {
+        inputDevices().first { d in
+            let t: UInt32? = HAL.get(d.id, kAudioDevicePropertyTransportType)
+            return t == kAudioDeviceTransportTypeBuiltIn
+        }?.uid
+    }
+
     public static func deviceID(forUID uid: String) -> AudioObjectID? {
         inputDevices().first { $0.uid == uid }?.id
     }

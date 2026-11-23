@@ -160,15 +160,20 @@ public struct ControlView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Menu {
-                    Button("System default") { Task { await engine.setMicDevice(nil) } }
+                    Button((settings.profile.recognition.micDeviceUID == nil ? "✓ " : "") + "Built-in microphone (recommended)") {
+                        Task { await engine.setMicDevice(nil) }
+                    }
+                    Button((MicSelection.followsSystemDefault(settings.profile.recognition.micDeviceUID) ? "✓ " : "") + "Follow the macOS default input") {
+                        Task { await engine.setMicDevice(MicSelection.systemDefault) }
+                    }
                     Divider()
                     ForEach(devices) { d in
-                        Button(d.name) { Task { await engine.setMicDevice(d.uid) } }
+                        Button((settings.profile.recognition.micDeviceUID == d.uid ? "✓ " : "") + d.name) { Task { await engine.setMicDevice(d.uid) } }
                     }
                 } label: {
                     Label(micName, systemImage: "mic.fill").lineLimit(1)
                 }
-                .tip("Microphone input — new devices appear here as soon as they are connected")
+                .tip("Microphone. Default: the built-in mic — new devices (HDMI, docks) are never used unless you pick them here")
                 Button { showApps.toggle() } label: {
                     Label(appsSummary, systemImage: "app.badge").lineLimit(1)
                 }
@@ -184,8 +189,9 @@ public struct ControlView: View {
     }
 
     private var micName: String {
-        guard let uid = settings.profile.recognition.micDeviceUID else { return "Mic: default" }
-        return devices.first { $0.uid == uid }?.name ?? "Mic: missing"
+        guard let uid = settings.profile.recognition.micDeviceUID else { return "Mic: built-in" }
+        if MicSelection.followsSystemDefault(uid) { return "Mic: macOS default" }
+        return devices.first { $0.uid == uid }?.name ?? "Mic: unplugged → built-in"
     }
 
     private var appsSummary: String {

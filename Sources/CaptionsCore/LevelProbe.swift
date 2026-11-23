@@ -18,7 +18,7 @@ public final class LevelProbe {
         stop()
         error = nil; gotSignal = false
         if kind == .mic, !(await MicCapture.requestAccess()) { error = "Microphone access denied"; return }
-        let cap: any AudioSource = kind == .mic ? MicCapture(deviceUID: micUID, voiceProcessing: false) : SystemAudioTap(scope: .all)
+        let cap: any AudioSource = kind == .mic ? MicCapture(deviceUID: MicSelection.deviceUID(for: micUID), voiceProcessing: false) : SystemAudioTap(scope: .all)
         do { try cap.start() } catch { self.error = error.localizedDescription; return }
         capture = cap
         task = Task { [weak self] in

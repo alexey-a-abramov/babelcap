@@ -136,7 +136,7 @@ public final class CaptionsEngine {
         runState = .running
         Trace.log("engine", "running; sources=\(settings.profile.sources.rawValue) mix=\(settings.profile.session.mixIntoOne) model=\(settings.modelName)")
         await reconcile()
-        if let uid = settings.profile.recognition.micDeviceUID {
+        if let uid = settings.profile.recognition.micDeviceUID, !MicSelection.followsSystemDefault(uid) {
             chosenMicPresent = AudioDevices.inputDevices().contains { $0.uid == uid }
         }
         startTick()
@@ -262,7 +262,7 @@ public final class CaptionsEngine {
             // Voice processing reconfigures the audio hardware and knocks out a concurrently running system-audio tap
             // (observed: one of the two inputs goes silent). Use it only when the mic is the sole capture.
             let systemToo = runtimes.values.contains { $0.physical.contains(.system) } || desiredKinds().contains(where: { $0 != .mic })
-            return MicCapture(deviceUID: r.micDeviceUID, voiceProcessing: r.voiceProcessing && !systemToo)
+            return MicCapture(deviceUID: MicSelection.deviceUID(for: r.micDeviceUID), voiceProcessing: r.voiceProcessing && !systemToo)
         default: return SystemAudioTap(scope: r.appBundleIDs.isEmpty ? .all : .apps(bundleIDs: r.appBundleIDs))
         }
     }
@@ -555,13 +555,14 @@ public final class CaptionsEngine {
                 }
             }
         case .inputChanged:
-            // Only a mic that follows the system default cares about the default input.
-            guard micUID == nil else { break }
+            // Only a mic set to follow the macOS default input cares; the default (built-in) mic ignores it,
+            // so an HDMI display or dock becoming the default input changes nothing.
+            guard MicSelection.followsSystemDefault(micUID) else { break }
             for rt in runtimes.values where rt.physical.contains(.mic) { await rebuildCapture(.mic, in: rt) }
         case .devicesChanged:
-            // A device appeared or disappeared (e.g. an HDMI display with audio). Touch the mic only if the chosen
-            // one vanished (→ fall back to the default) or came back.
-            guard let uid = micUID else { break }
+            // A device appeared or disappeared (e.g. an HDMI display with audio). Touch the mic only if an explicitly
+            // chosen one vanished (→ built-in mic) or came back.
+            guard let uid = micUID, !MicSelection.followsSystemDefault(uid) else { break }
             let present = AudioDevices.inputDevices().contains { $0.uid == uid }
             defer { chosenMicPresent = present }
             guard let was = chosenMicPresent, was != present else { break }

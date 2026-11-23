@@ -84,6 +84,7 @@ Needs a real Soniox key and live audio.
 
 - [~] Reconnect with backoff, keepalive ping, error codes 401/402/408/413/429/5xx (FR-17)
 - [~] Session rotation at minute 290
+- [x] Mic defaults to the built-in microphone (never an HDMI/dock input that macOS makes the default); "follow the macOS default input" and specific devices are opt-in; an unplugged chosen mic falls back to built-in
 - [~] Device changes rebuild only what is affected: output change (HDMI, AirPods) → system tap only (mic only if voice processing is on); default-input change → default mic; chosen mic vanished/returned → mic; sleep/wake → everything. Sessions are kept (test simulates HDMI). Verify with a real HDMI display
 - [~] Auto-pause on silence + minutes and cost counter (FR-18)
 - [~] Export MD/SRT/JSON (FR-19); optional history in `~/Library/Application Support/Subveil/History` — **off by default, every session starts clean** (owner decision)
