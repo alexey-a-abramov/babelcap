@@ -5,7 +5,7 @@ import Foundation
 /// Fires (debounced) when the default output device, the device list, or the audio-process list changes,
 /// and on system sleep/wake. Callers recreate taps / engines in response.
 public final class DeviceMonitor: @unchecked Sendable {
-    public enum Event: Sendable { case outputChanged, devicesChanged, processesChanged, didWake }
+    public enum Event: Sendable { case outputChanged, inputChanged, devicesChanged, processesChanged, didWake }
 
     private let handler: @Sendable (Event) -> Void
     private var listeners: [(AudioObjectPropertyAddress, AudioObjectPropertyListenerBlock)] = []
@@ -17,6 +17,7 @@ public final class DeviceMonitor: @unchecked Sendable {
 
     public func start() {
         add(kAudioHardwarePropertyDefaultOutputDevice, .outputChanged)
+        add(kAudioHardwarePropertyDefaultInputDevice, .inputChanged)
         add(kAudioHardwarePropertyDevices, .devicesChanged)
         add(kAudioHardwarePropertyProcessObjectList, .processesChanged, delay: 1.0)
         let nc = NSWorkspace.shared.notificationCenter

@@ -200,4 +200,62 @@ final class EngineIntegrationTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(made.value, 2, "the dead capture was rebuilt")
         XCTAssertEqual(server.connections.count, 1, "the Soniox session is kept while the capture is rebuilt")
     }
+
+    func testChangingTargetLanguageMidSessionSwapsOnlyThatStream() async throws {
+        settings.setAPIKey("k")
+        let server = self.server!
+        await engine.start()
+        _ = await waitUntil(8) { server.connections.first?.binaryCount ?? 0 >= 3 }
+
+        settings.profile.appearance.original.size += 4          // cosmetic: no new session
+        var swapped = await engine.syncWithSettings()
+        XCTAssertEqual(swapped, 0)
+        XCTAssertEqual(server.connections.count, 1)
+
+        settings.profile.translationSystem = TranslationSettings(kind: .oneWay, target: "he")
+        swapped = await engine.syncWithSettings()
+        XCTAssertEqual(swapped, 1, "the system stream gets a new session with the new target")
+        let reconnected = await waitUntil(5) { server.connections.count == 2 && !(server.connections[1].texts.isEmpty) }
+        XCTAssertTrue(reconnected)
+        let cfg = try XCTUnwrap(server.connections[1].texts.first)
+        XCTAssertTrue(cfg.contains("\"target_language\":\"he\""), cfg)
+        let flows = await waitUntil(5) { server.connections[1].binaryCount >= 3 }
+        XCTAssertTrue(flows, "capture kept running and audio now goes to the new session")
+        XCTAssertEqual(engine.runState, .running)
+
+        swapped = await engine.syncWithSettings()
+        XCTAssertEqual(swapped, 0, "nothing changed since the last sync")
+    }
+
+    func testHDMIOutputChangeRebuildsOnlySystemAudioAndKeepsSessions() async {
+        settings.setAPIKey("k")
+        settings.profile.sources = .both
+        let server = self.server!
+        let lock = NSLock()
+        nonisolated(unsafe) var made: [SourceKind: Int] = [:]
+        engine.captureFactory = { kind, _ in
+            lock.lock(); made[kind, default: 0] += 1; lock.unlock()
+            return FakeCapture()
+        }
+        func count(_ k: SourceKind) -> Int { lock.lock(); defer { lock.unlock() }; return made[k] ?? 0 }
+
+        await engine.start()
+        _ = await waitUntil(8) { server.connections.count >= 2 }
+        XCTAssertEqual(count(.system), 1); XCTAssertEqual(count(.mic), 1)
+
+        await engine.handleDevice(.outputChanged)        // HDMI plugged in → new default output
+        XCTAssertEqual(count(.system), 2, "system tap follows the new output device")
+        XCTAssertEqual(count(.mic), 1, "the mic is not touched by an output change")
+
+        await engine.handleDevice(.devicesChanged)       // HDMI's audio device appears in the list
+        XCTAssertEqual(count(.system), 2); XCTAssertEqual(count(.mic), 1)
+
+        await engine.handleDevice(.inputChanged)         // default input changed → default mic follows
+        XCTAssertEqual(count(.mic), 2)
+        XCTAssertEqual(count(.system), 2)
+
+        XCTAssertEqual(server.connections.count, 2, "Soniox sessions survive device changes")
+        let flowing = await waitUntil(5) { server.connections.allSatisfy { $0.binaryCount >= 5 } }
+        XCTAssertTrue(flowing, "both streams keep receiving audio after the rebuilds")
+    }
 }

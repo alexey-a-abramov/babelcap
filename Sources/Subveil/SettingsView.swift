@@ -11,7 +11,6 @@ struct SettingsView: View {
     @Bindable var settings: SettingsStore
     let engine: CaptionsEngine
     let store: TranscriptStore
-    @State private var configTask: Task<Void, Never>?
 
     var body: some View {
         TabView {
@@ -25,20 +24,7 @@ struct SettingsView: View {
             ShortcutsTab().tabItem { Label("Shortcuts", systemImage: "command") }
         }
         .frame(width: 640, height: 640)
-        // Recognition / translation / context changes need a new server session → apply (debounced).
-        .onChange(of: settings.profile.recognition) { scheduleApply() }
-        .onChange(of: settings.profile.translationSystem) { scheduleApply() }
-        .onChange(of: settings.profile.translationMic) { scheduleApply() }
-        .onChange(of: settings.profile.session.dedupeEchoes) { store.dedupeEchoes = settings.profile.session.dedupeEchoes }
-    }
-
-    private func scheduleApply() {
-        configTask?.cancel()
-        configTask = Task {
-            try? await Task.sleep(for: .seconds(1.2))
-            guard !Task.isCancelled else { return }
-            await engine.applyConfigChange()
-        }
+        // Changes reach a running session through AppContext's settings watcher.
     }
 }
 

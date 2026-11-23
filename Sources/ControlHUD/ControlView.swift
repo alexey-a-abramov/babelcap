@@ -41,7 +41,6 @@ public struct ControlView: View {
     @State private var apps: [AudioApp] = []
     @State private var showApps = false
     @State private var search = ""
-    @State private var configTask: Task<Void, Never>?
     @Namespace private var ns
 
     public init(settings: SettingsStore, engine: CaptionsEngine, store: TranscriptStore, hud: HUDState,
@@ -58,8 +57,6 @@ public struct ControlView: View {
         .animation(.spring(duration: 0.35, bounce: 0.15), value: hud.expanded)
         .animation(.spring(duration: 0.35, bounce: 0.15), value: hud.compact)
         .task { await refreshLoop() }
-        .onChange(of: settings.profile.translationSystem) { scheduleConfigChange() }
-        .onChange(of: settings.profile.translationMic) { scheduleConfigChange() }
     }
 
     // MARK: Layouts
@@ -291,9 +288,6 @@ public struct ControlView: View {
                 Picker("Profile", selection: $settings.activeID) { ForEach(settings.profiles) { Text($0.name).tag($0.id) } }
             } label: { Label(settings.profile.name, systemImage: "person.crop.rectangle") }
             .tip("Profile — languages, translation, look and context saved together")
-            .onChange(of: settings.activeID) {
-                Task { await engine.setSources(settings.profile.sources); await engine.applyConfigChange() }
-            }
             Menu {
                 Button("Settings…", action: actions.openSettings)
                 Button("Hide panel", action: actions.hidePanel)
@@ -348,15 +342,6 @@ public struct ControlView: View {
     private func timeString(_ t: TimeInterval) -> String {
         let s = Int(t)
         return String(format: "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
-    }
-
-    private func scheduleConfigChange() {
-        configTask?.cancel()
-        configTask = Task {
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled else { return }
-            await engine.applyConfigChange()
-        }
     }
 
     private func refreshLoop() async {

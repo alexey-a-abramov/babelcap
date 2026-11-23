@@ -7,6 +7,8 @@ import os
 public final class MicCapture: AudioSource, @unchecked Sendable {
     public let ring = RingBuffer(capacity: 48_000 * 20)
     public private(set) var sampleRate: Double = 48_000
+    /// Voice processing is actually active (it depends on the output device, so it must follow output changes).
+    public private(set) var usesVoiceProcessing = false
 
     private let deviceUID: String?
     private let voiceProcessing: Bool
@@ -76,6 +78,7 @@ public final class MicCapture: AudioSource, @unchecked Sendable {
                 downmixer.push(UnsafeMutableAudioBufferListPointer(abl), into: ring)
             }
         }
+        usesVoiceProcessing = vpActive
         engine.prepare()
         do { try engine.start() } catch { input.removeTap(onBus: 0); throw error }
         self.engine = engine

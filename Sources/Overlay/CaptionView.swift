@@ -15,6 +15,8 @@ public final class OverlayState {
     public var onHide: (() -> Void)?
     public var onToggleClickThrough: (() -> Void)?
     public var onToggleSplit: (() -> Void)?
+    /// (language code or nil = off, panel source or nil = all sources)
+    public var onSetTarget: ((String?, SourceKind?) -> Void)?
     /// Two panels are currently shown (System / Mic).
     public var isSplit = false
     public var onOpenSettings: (() -> Void)?
@@ -177,6 +179,7 @@ public struct CaptionView: View {
 
     private var toolbar: some View {
         HStack(spacing: 2) {
+            targetMenu
             chromeButton("eye.slash", "Hide subtitles (⌥⌘C brings them back)") { state.onHide?() }
             if p.sources == .both && !p.session.mixIntoOne {
                 chromeButton(state.isSplit ? "rectangle.compress.vertical" : "rectangle.split.2x1",
@@ -190,6 +193,34 @@ public struct CaptionView: View {
         }
         .padding(4)
         .background(Capsule().fill(.black.opacity(0.65)))
+    }
+
+    /// Pick the language this panel translates into, while the session runs.
+    private var targetMenu: some View {
+        let source: SourceKind = filter == .mic ? .mic : .system
+        let tr = p.translation(for: source)
+        let label: String = switch tr.kind {
+        case .off: "Off"
+        case .oneWay: tr.target.uppercased()
+        case .twoWay: "\(tr.languageA.uppercased())↔\(tr.languageB.uppercased())"
+        }
+        return Menu {
+            Button((tr.kind == .off ? "✓ " : "") + "No translation (original)") { state.onSetTarget?(nil, filter) }
+            Divider()
+            ForEach(Languages.all, id: \.code) { l in
+                Button((tr.kind == .oneWay && tr.target == l.code ? "✓ " : "") + l.name) { state.onSetTarget?(l.code, filter) }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "globe").font(.system(size: 11, weight: .semibold))
+                Text(label).font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(.white)
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .padding(.horizontal, 6)
+        .tip(filter == nil ? "Translate into… (takes effect immediately, capture keeps running)"
+                           : "Translate \(source == .mic ? "Mic" : "System") into… (takes effect immediately)")
     }
 
     private func chromeButton(_ symbol: String, _ help: String, _ action: @escaping () -> Void) -> some View {

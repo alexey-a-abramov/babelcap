@@ -3,6 +3,7 @@ import AppSettings
 import CaptionsCore
 import ControlHUD
 import Overlay
+import SonioxClient
 import SwiftUI
 import Transcript
 
@@ -36,10 +37,12 @@ final class AppContext {
                 quit: { [weak self] in self?.quit() }))
         hud.show()
         overlay.openSettings = { [weak self] in self?.openSettings() }
+        overlay.state.onSetTarget = { [weak self] code, source in self?.setTarget(code, for: source) }
         overlay.start()
         applyDockPolicy()
         trackDock()
         trackEngine()
+        trackSettingsForEngine()
         HotKeys.shared.registerDefaults(self)
         if !settings.onboardingDone || !settings.hasAPIKey { showOnboarding() }
     }
@@ -91,6 +94,38 @@ final class AppContext {
         }
     }
 
+    // One place reacts to settings changes during a session (HUD, subtitle toolbar, menu bar, Settings window, profile switch).
+    private var syncTask: Task<Void, Never>?
+
+    private func trackSettingsForEngine() {
+        withObservationTracking {
+            _ = settings.profile
+            _ = settings.activeID
+            _ = settings.modelName
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.syncTask?.cancel()
+                self.syncTask = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(500))
+                    guard !Task.isCancelled, let self else { return }
+                    self.store.dedupeEchoes = self.settings.profile.session.dedupeEchoes
+                    await self.engine.syncWithSettings()
+                }
+                self.trackSettingsForEngine()
+            }
+        }
+    }
+
+    /// Menu bar / toolbar: translate one source (or both) into `code`; nil turns translation off.
+    func setTarget(_ code: String?, for source: SourceKind?) {
+        func apply(_ t: inout TranslationSettings) {
+            if let code { t.kind = .oneWay; t.target = code } else { t.kind = .off }
+        }
+        if source != .mic { apply(&settings.profile.translationSystem) }
+        if source != .system { apply(&settings.profile.translationMic) }
+    }
+
     // MARK: Dock icon (menu bar item is always there)
 
     func applyDockPolicy() {
@@ -135,8 +170,7 @@ final class AppContext {
         let on = settings.profile.translationSystem.kind == .off && settings.profile.translationMic.kind == .off
         let kind: TranslationSettings.Kind = on ? .oneWay : .off
         settings.profile.translationSystem.kind = kind
-        settings.profile.translationMic.kind = kind
-        Task { await engine.applyConfigChange() }
+        settings.profile.translationMic.kind = kind   // the settings watcher swaps the affected sessions
     }
 
     func showOnboarding() {

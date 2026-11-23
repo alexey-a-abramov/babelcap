@@ -38,6 +38,8 @@ final class Runtime {
     var billedSeconds: Double = 0
     var conn: ConnState = .connecting
     var hasTranslation = false
+    /// Config of the current Soniox session (to detect what a settings change actually affects).
+    var config: SonioxConfig?
     var mixer: ChunkMixer?
 
     init(kind: SourceKind) { self.kind = kind }
@@ -134,6 +136,9 @@ public final class CaptionsEngine {
         runState = .running
         Trace.log("engine", "running; sources=\(settings.profile.sources.rawValue) mix=\(settings.profile.session.mixIntoOne) model=\(settings.modelName)")
         await reconcile()
+        if let uid = settings.profile.recognition.micDeviceUID {
+            chosenMicPresent = AudioDevices.inputDevices().contains { $0.uid == uid }
+        }
         startTick()
         startMonitor()
         if runtimes.isEmpty {
@@ -204,6 +209,22 @@ public final class CaptionsEngine {
     public func applyConfigChange() async {
         guard isRunning else { return }
         for rt in runtimes.values where !(rt.conn == .autoPaused) { await swapSession(rt) }
+    }
+
+    /// Brings a running session in line with the settings — called (debounced) after any settings change, e.g. a new
+    /// target language picked mid-session. Starts/stops sources if needed and swaps only the streams whose Soniox
+    /// config really changed; capture keeps running and the transcript is kept. Returns the number of swapped streams.
+    @discardableResult
+    public func syncWithSettings() async -> Int {
+        guard isRunning else { return 0 }
+        await reconcile()
+        var swapped = 0
+        for rt in runtimes.values where rt.conn != .autoPaused && rt.config != nil && rt.config != makeConfig(for: rt.kind) {
+            Trace.log("engine", "config changed for \(rt.kind.rawValue) → new session")
+            await swapSession(rt)
+            swapped += 1
+        }
+        return swapped
     }
 
     // MARK: Runtimes
@@ -386,6 +407,7 @@ public final class CaptionsEngine {
 
     private func openSession(_ rt: Runtime) async -> SonioxSession {
         let cfg = makeConfig(for: rt.kind)
+        rt.config = cfg
         rt.hasTranslation = cfg.translation != nil
         Trace.log("engine", "open session \(rt.kind.rawValue): translation=\(cfg.translation != nil) diarization=\(cfg.enableSpeakerDiarization) hints=\(cfg.languageHints ?? [])")
         let s = SonioxSession(apiKey: apiKey, config: cfg, endpoint: endpoint)
@@ -516,15 +538,38 @@ public final class CaptionsEngine {
         monitor = m
     }
 
-    private func handleDevice(_ e: DeviceMonitor.Event) async {
+    /// Reacts to hardware changes with the smallest possible rebuild, so plugging in HDMI / AirPods never disturbs
+    /// the input that did not change. Soniox sessions are kept; the watchdog covers anything that still goes silent.
+    func handleDevice(_ e: DeviceMonitor.Event) async {
         guard runState != .idle else { return }
+        Trace.log("device", "\(e)")
+        let micUID = settings.profile.recognition.micDeviceUID
         switch e {
-        case .outputChanged, .didWake:
+        case .outputChanged:
+            // The system tap is bound to the output device: rebuild it. The mic only depends on the output
+            // when voice processing (echo cancellation) is active.
+            for rt in runtimes.values {
+                if rt.physical.contains(.system) { await rebuildCapture(.system, in: rt) }
+                if rt.physical.contains(.mic), (rt.captures[.mic] as? MicCapture)?.usesVoiceProcessing == true {
+                    await rebuildCapture(.mic, in: rt)
+                }
+            }
+        case .inputChanged:
+            // Only a mic that follows the system default cares about the default input.
+            guard micUID == nil else { break }
+            for rt in runtimes.values where rt.physical.contains(.mic) { await rebuildCapture(.mic, in: rt) }
+        case .devicesChanged:
+            // A device appeared or disappeared (e.g. an HDMI display with audio). Touch the mic only if the chosen
+            // one vanished (→ fall back to the default) or came back.
+            guard let uid = micUID else { break }
+            let present = AudioDevices.inputDevices().contains { $0.uid == uid }
+            defer { chosenMicPresent = present }
+            guard let was = chosenMicPresent, was != present else { break }
+            for rt in runtimes.values where rt.physical.contains(.mic) { await rebuildCapture(.mic, in: rt) }
+        case .didWake:
             for rt in runtimes.values {
                 for p in rt.physical { await rebuildCapture(p, in: rt) }
             }
-        case .devicesChanged:
-            for rt in runtimes.values where rt.physical.contains(.mic) { await rebuildCapture(.mic, in: rt) }
         case .processesChanged:
             // Global taps follow new processes by themselves; only retry a capture that failed earlier.
             for rt in runtimes.values where rt.physical.contains(.system) && rt.captures[.system] == nil {
@@ -532,6 +577,9 @@ public final class CaptionsEngine {
             }
         }
     }
+
+    /// Whether the explicitly chosen mic was present at the last device-list change.
+    @ObservationIgnored private var chosenMicPresent: Bool?
 
     // MARK: History
 

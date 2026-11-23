@@ -84,7 +84,7 @@ Needs a real Soniox key and live audio.
 
 - [~] Reconnect with backoff, keepalive ping, error codes 401/402/408/413/429/5xx (FR-17)
 - [~] Session rotation at minute 290
-- [~] Rebuild tap/engine on output-device change and sleep/wake (`DeviceMonitor`)
+- [~] Device changes rebuild only what is affected: output change (HDMI, AirPods) → system tap only (mic only if voice processing is on); default-input change → default mic; chosen mic vanished/returned → mic; sleep/wake → everything. Sessions are kept (test simulates HDMI). Verify with a real HDMI display
 - [~] Auto-pause on silence + minutes and cost counter (FR-18)
 - [~] Export MD/SRT/JSON (FR-19); optional history in `~/Library/Application Support/Subveil/History` — **off by default, every session starts clean** (owner decision)
 - [x] Mock WebSocket server + tests for 401, 429, reconnect, replay (see "Diagnostics and tests")
@@ -140,6 +140,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-23 — Target language can be changed mid-session from the subtitle toolbar (globe menu), the menu bar ("Translate to") or the HUD; one settings watcher swaps only streams whose Soniox config changed. Targeted device-change handling for HDMI / AirPods.
 
 - 2026-11-23 — Both mode: VP/tap conflict found in traces and fixed, capture watchdog, separate System/Mic panels by default with split/merge toggle.
 

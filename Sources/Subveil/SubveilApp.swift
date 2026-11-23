@@ -48,6 +48,14 @@ struct MenuContent: View {
                 Button((ctx.settings.profile.sources == m ? "✓ " : "") + m.title) { Task { await e.setSources(m) } }
             }
         }
+        Menu("Translate to") {
+            let t = ctx.settings.profile.translationSystem
+            Button((t.kind == .off ? "✓ " : "") + "No translation") { ctx.setTarget(nil, for: nil) }
+            Divider()
+            ForEach(Languages.all, id: \.code) { l in
+                Button((t.kind == .oneWay && t.target == l.code ? "✓ " : "") + l.name) { ctx.setTarget(l.code, for: nil) }
+            }
+        }
         Button("Show / hide control panel") { ctx.hud.toggleVisible() }
         Button("Show / hide subtitles") { ctx.overlay.toggleVisible() }
         Button("Position subtitles (preview)") { ctx.togglePositioning() }
