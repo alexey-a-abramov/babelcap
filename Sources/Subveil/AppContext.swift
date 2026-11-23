@@ -72,9 +72,14 @@ final class AppContext {
         }
     }
 
+    private var lastRunState: RunState = .idle
+
     private func engineStateChanged() {
+        defer { lastRunState = engine.runState }
         hideTask?.cancel()
         if engine.isRunning {
+            // A new session always starts with the subtitles visible (hiding is per session).
+            if lastRunState == .idle, !settings.profile.layout.showSubtitles { settings.profile.layout.showSubtitles = true }
             overlay.preview = false
             overlay.isActive = true
         } else {

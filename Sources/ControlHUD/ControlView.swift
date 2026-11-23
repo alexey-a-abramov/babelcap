@@ -97,6 +97,11 @@ public struct ControlView: View {
             }
             Spacer(minLength: 0)
             controls
+            IconButton(symbol: settings.profile.layout.showSubtitles ? "captions.bubble" : "captions.bubble.fill",
+                       help: settings.profile.layout.showSubtitles ? "Hide subtitles (⌥⌘C)" : "Subtitles are hidden — click to show (⌥⌘C)",
+                       highlighted: !settings.profile.layout.showSubtitles) {
+                settings.profile.layout.showSubtitles.toggle(); hud.touch()
+            }
             IconButton(symbol: "chevron.down", help: hud.expanded ? "Collapse" : "Options, translation and history",
                        rotation: hud.expanded ? 180 : 0) { hud.expanded.toggle(); hud.touch() }
             IconButton(symbol: "xmark", help: "Hide this panel — bring it back from the menu bar / Dock icon or ⌥⌘H",
@@ -492,6 +497,8 @@ struct IconButton: View {
     let symbol: String
     let help: String
     var rotation: Double = 0
+    /// Draws attention (e.g. "subtitles are hidden").
+    var highlighted = false
     let action: () -> Void
     @State private var hover = false
 
@@ -501,8 +508,8 @@ struct IconButton: View {
                 .font(.system(size: 11, weight: .bold))
                 .rotationEffect(.degrees(rotation))
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(.white.opacity(hover ? 0.18 : 0.08)))
-                .foregroundStyle(hover ? .primary : .secondary)
+                .background(Circle().fill(highlighted ? Color.orange.opacity(hover ? 0.95 : 0.8) : .white.opacity(hover ? 0.18 : 0.08)))
+                .foregroundStyle(highlighted ? .white : (hover ? .primary : .secondary))
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
