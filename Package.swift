@@ -20,6 +20,9 @@ let package = Package(
             dependencies: ["AudioCapture", "SonioxClient", "Transcript", "AppSettings", "CaptionsCore", "Overlay", "ControlHUD"]
         ),
         .testTarget(name: "TranscriptTests", dependencies: ["Transcript", "SonioxClient"]),
-        .testTarget(name: "SonioxClientTests", dependencies: ["SonioxClient"]),
+        .testTarget(
+            name: "SonioxClientTests",
+            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript"]
+        ),
     ]
 )

@@ -39,6 +39,9 @@ public actor SonioxSession {
     private var lastSend = Date()
     private var connectedAt = Date()
     private var rotating = false
+    private var sentChunks = 0
+    private var receivedMessages = 0
+    private var statsAt = Date()
 
     public init(apiKey: String, config: SonioxConfig, endpoint: URL = SonioxSession.endpoint, maxBufferChunks: Int = 300) {
         self.apiKey = apiKey
@@ -96,10 +99,12 @@ public actor SonioxSession {
         var attempt = 0
         while !stopping, !Task.isCancelled {
             continuation.yield(.state(attempt == 0 ? .connecting : .reconnecting))
+            Trace.log("ws", "connect attempt \(attempt + 1) → \(endpoint.host ?? "?")")
             var gotData = false
             do {
                 gotData = try await connectAndReceive()
             } catch let e as SonioxError {
+                Trace.log("ws", "server error \(e.code) \(e.message) (\(e.action))")
                 if e.isFatal {
                     continuation.yield(.error(e))
                     continuation.yield(.state(.failed))
@@ -109,6 +114,9 @@ public actor SonioxSession {
                 continuation.yield(.error(e))
                 if e.code == 429 { attempt = max(attempt, 3) }
             } catch {
+                let code = task?.closeCode.rawValue ?? -1
+                let reason = task?.closeReason.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                Trace.log("ws", "socket error: \(error.localizedDescription) closeCode=\(code) reason=\(reason)")
                 log.error("socket error: \(error.localizedDescription)")
             }
             connected = false
@@ -116,6 +124,7 @@ public actor SonioxSession {
             if rotating { rotating = false; attempt = 0; continue }
             attempt = gotData ? 1 : attempt + 1
             let delay = min(30.0, 0.5 * pow(2.0, Double(attempt - 1)))
+            Trace.log("ws", "reconnecting in \(delay) s (attempt \(attempt), gotData=\(gotData), replay from chunk \(max(baseIndex, absFinalMs / Self.chunkMs)))")
             continuation.yield(.state(.reconnecting))
             try? await Task.sleep(for: .seconds(delay))
         }
@@ -138,6 +147,7 @@ public actor SonioxSession {
         try await ws.send(.data(try config.jsonData()).asString)
         connected = true
         connectedAt = Date()
+        Trace.log("ws", "config sent; live (resume chunk \(resume), buffered \(buffer.count))")
         continuation.yield(.state(.live))
         startPing()
         await flush()
@@ -147,6 +157,7 @@ public actor SonioxSession {
         while !Task.isCancelled {
             let msg = try await ws.receive()
             gotData = true
+            receivedMessages += 1
             let data: Data
             switch msg {
             case let .string(s): data = Data(s.utf8)
@@ -166,6 +177,7 @@ public actor SonioxSession {
                 continuation.yield(.tokens(toks))
             }
             if resp.finished == true {
+                Trace.log("ws", "server finished")
                 serverFinished = true
                 continuation.yield(.finished)
                 return gotData
@@ -186,6 +198,7 @@ public actor SonioxSession {
             do {
                 try await ws.send(.data(chunk))
                 lastSend = Date()
+                sentChunks += 1
             } catch {
                 break // the receive loop notices the broken socket and reconnects
             }
@@ -210,6 +223,10 @@ public actor SonioxSession {
 
     private func keepaliveTick() async {
         guard connected else { return }
+        if Date().timeIntervalSince(statsAt) >= 10 {
+            statsAt = Date()
+            Trace.log("ws", "stats: sent \(sentChunks) chunks, received \(receivedMessages) msgs, finalAudio \(absFinalMs) ms, queued \(baseIndex + buffer.count - nextIndex)")
+        }
         if Date().timeIntervalSince(connectedAt) > Self.rotationInterval, !rotating {
             await rotate()
             return

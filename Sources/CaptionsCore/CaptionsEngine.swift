@@ -66,7 +66,13 @@ public final class CaptionsEngine {
     public private(set) var speakerEchoHint = false
     public private(set) var captureErrors: [SourceKind: String] = [:]
 
+    /// Test / debugging seams.
+    @ObservationIgnored public var captureFactory: (@MainActor (SourceKind, RecognitionSettings) -> any AudioSource)?
+    @ObservationIgnored public var endpoint: URL = SonioxSession.endpoint
+    @ObservationIgnored private var apiKey = ""
+
     @ObservationIgnored private var runtimes: [SourceKind: Runtime] = [:]
+    @ObservationIgnored private var meterCounts: [SourceKind: Int] = [:]
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var monitor: DeviceMonitor?
     @ObservationIgnored private var zeroSince: [SourceKind: Date] = [:]
@@ -95,16 +101,38 @@ public final class CaptionsEngine {
     // MARK: Lifecycle
 
     public func start() async {
+        Trace.log("engine", "start requested (state \(runState))")
         guard runState == .idle else { return }
-        guard let key = settings.apiKey, !key.isEmpty else { needsKey = true; return }
-        needsKey = false; lastError = nil; _ = key
+        // Off the main thread: macOS may show a "Subveil wants to use your confidential information" dialog here.
+        let keychain = settings.keychain
+        let keyResult = await Task.detached { keychain.read() }.value
+        guard runState == .idle else { return }
+        switch keyResult {
+        case let .found(k):
+            apiKey = k
+        case .notFound:
+            needsKey = true
+            lastError = "No Soniox API key saved. Open Settings → Account."
+            Trace.log("engine", "start aborted: no key")
+            return
+        case let .failed(st):
+            needsKey = true
+            lastError = "Keychain refused access (\(KeychainStore.message(st))). Re-enter the key in Settings → Account."
+            Trace.log("engine", "start aborted: keychain status \(st)")
+            return
+        }
+        needsKey = false; lastError = nil
         store.dedupeEchoes = settings.profile.session.dedupeEchoes
         elapsed = 0; estimatedCost = 0; systemPermissionHint = false
         runState = .running
+        Trace.log("engine", "running; sources=\(settings.profile.sources.rawValue) mix=\(settings.profile.session.mixIntoOne) model=\(settings.modelName)")
         await reconcile()
         startTick()
         startMonitor()
-        if runtimes.isEmpty { await stop() }
+        if runtimes.isEmpty {
+            Trace.log("engine", "no runtime could start → stopping")
+            await stop()
+        }
     }
 
     public func pause() async {
@@ -132,6 +160,7 @@ public final class CaptionsEngine {
 
     public func stop() async {
         guard runState != .idle else { return }
+        Trace.log("engine", "stop (elapsed \(Int(elapsed)) s, segments \(store.segments.count))")
         runState = .idle
         tickTask?.cancel(); tickTask = nil
         monitor?.stop(); monitor = nil
@@ -199,6 +228,7 @@ public final class CaptionsEngine {
 
     private func makeCapture(_ k: SourceKind) -> any AudioSource {
         let r = settings.profile.recognition
+        if let f = captureFactory { return f(k, r) }
         switch k {
         case .mic: return MicCapture(deviceUID: r.micDeviceUID, voiceProcessing: r.voiceProcessing)
         default: return SystemAudioTap(scope: r.appBundleIDs.isEmpty ? .all : .apps(bundleIDs: r.appBundleIDs))
@@ -211,7 +241,8 @@ public final class CaptionsEngine {
         runtimes[kind] = rt
         conn[kind] = .connecting
 
-        if rt.physical.contains(.mic), !(await MicCapture.requestAccess()) {
+        Trace.log("engine", "startRuntime \(kind.rawValue)")
+        if captureFactory == nil, rt.physical.contains(.mic), !(await MicCapture.requestAccess()) {
             captureErrors[.mic] = CaptureError.micDenied.localizedDescription
             lastError = "Microphone access denied — enable it in System Settings → Privacy & Security → Microphone"
             if kind == .mic { runtimes[kind] = nil; conn[kind] = nil; return }
@@ -266,7 +297,9 @@ public final class CaptionsEngine {
             rt.captures[phys] = cap
             captureErrors[phys] = nil
             await pump.setSource(cap)
+            Trace.log("capture", "\(phys.rawValue) started, rate \(cap.sampleRate)")
         } catch {
+            Trace.log("capture", "\(phys.rawValue) FAILED: \(error.localizedDescription)")
             captureErrors[phys] = error.localizedDescription
             lastError = "\(phys == .mic ? "Microphone" : "System audio"): \(error.localizedDescription)"
             log.error("capture \(phys.rawValue) failed: \(error.localizedDescription)")
@@ -323,7 +356,8 @@ public final class CaptionsEngine {
     private func openSession(_ rt: Runtime) async -> SonioxSession {
         let cfg = makeConfig(for: rt.kind)
         rt.hasTranslation = cfg.translation != nil
-        let s = SonioxSession(apiKey: settings.apiKey ?? "", config: cfg)
+        Trace.log("engine", "open session \(rt.kind.rawValue): translation=\(cfg.translation != nil) diarization=\(cfg.enableSpeakerDiarization) hints=\(cfg.languageHints ?? [])")
+        let s = SonioxSession(apiKey: apiKey, config: cfg, endpoint: endpoint)
         rt.sessionID += 1
         let id = rt.sessionID
         await s.start()
@@ -357,6 +391,7 @@ public final class CaptionsEngine {
         case let .tokens(t):
             store.apply(t, from: rt.kind)
         case let .state(s):
+            Trace.log("session", "\(rt.kind.rawValue)#\(sessionID) state \(s)")
             guard sessionID == rt.sessionID, rt.conn != .autoPaused else { return }
             let mapped: ConnState = switch s {
             case .connecting: .connecting
@@ -368,6 +403,7 @@ public final class CaptionsEngine {
             rt.conn = mapped; conn[rt.kind] = mapped
             if mapped == .live { lastError = nil }
         case let .error(err):
+            Trace.log("session", "\(rt.kind.rawValue)#\(sessionID) error \(err.code) \(err.message)")
             guard sessionID == rt.sessionID else { return }
             lastError = err.localizedDescription
             if err.action == .fatalKey { needsKey = true; Task { await stop() } }
@@ -381,6 +417,10 @@ public final class CaptionsEngine {
 
     private func handleMeter(_ m: AudioMeter, physical: SourceKind, runtime: SourceKind) {
         guard let rt = runtimes[runtime] else { return }
+        meterCounts[physical, default: 0] += 1
+        if meterCounts[physical]! % 20 == 1 {
+            Trace.log("meter", "\(physical.rawValue) rms \(String(format: "%.4f", m.rms)) peak \(String(format: "%.4f", m.peak))")
+        }
         let db = 20 * log10(max(m.rms, 1e-6))
         let norm = Float(max(0, min(1, (db + 60) / 60)))
         levels[physical] = max(norm, (levels[physical] ?? 0) * 0.8)
