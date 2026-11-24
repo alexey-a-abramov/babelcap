@@ -112,9 +112,12 @@ Needs a real Soniox key and live audio.
 - [x] Benchmark clips (EN/RU/DE/FR/ES/IT/HE, macOS voices), WER, speed (× real time) / latency, verdict; `subveil-bench` CLI; Benchmark tab
 - [x] "Models & Providers" window (browse / compare / benchmark), per-provider API keys in the Keychain
 - [ ] Cloud adapters: Gladia, Speechmatics, OpenAI realtime-translate, Gemini Live, Azure (SDK), ElevenLabs/AssemblyAI/Deepgram (+ a translation step)
-- [ ] Local cascade: Whisper (MLX) + EuroLLM-9B (mlx-lm) translation; Python sidecar host for SimulStreaming / Voxtral / Hibiki / Seamless
+- [x] Local translation with MLX LLMs (TranslateGemma 4B/12B, Qwen3 4B, EuroLLM 9B) via mlx-swift-lm; translator setting (Auto / Apple / Whisper / model)
+- [x] Whisper LocalAgreement-2 streaming: words committed while speaking, sentence-by-sentence translation
+- [x] Speaker colours (diarization) in subtitles and history
+- [ ] Python sidecar host for SimulStreaming / Voxtral / Hibiki / Seamless
 - [ ] Apple engine: auto language detection (it needs a fixed language); show Apple Translation pack status in the catalog
-- [ ] Whisper: LocalAgreement streaming policy for lower draft latency; VAD instead of an energy threshold
+- [ ] Whisper: neural VAD instead of the energy threshold
 - [ ] Verify the catalog window on screen (snapshots render off-screen; AppKit controls show as placeholders there)
 
 ## Deviations from the spec (deliberate)
@@ -157,6 +160,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-24 — Fully local pipeline: Whisper (LocalAgreement streaming) + TranslateGemma via MLX, RU/HE/EN at 11–14× real time; app now built with xcodebuild (Metal shaders); speaker colours.
 
 - 2026-11-24 — Release v0.1.0 (alpha, ad-hoc signed) published on GitHub.
 

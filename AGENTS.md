@@ -32,6 +32,7 @@ The product was specified as "Live Captions for macOS" (23 Nov 2026); the workin
 | `Transcript` | `TokenAssembler` (separate original/translation tracks), `TranscriptStore` (@MainActor, ≤ 1 update per frame), `EchoDeduper`, `Exporters` (MD/SRT/JSON) |
 | `AppSettings` | `Profile` and nested settings, `SettingsStore`, `KeychainStore`. *(Not named `Settings` — clashes with SwiftUI.)* |
 | `LocalEngines` | On-device engines behind `SpeechStream`: `AppleSpeechStream` (SpeechAnalyzer, macOS 26), `WhisperKitStream` (+ `WhisperKitPool`: one loaded model, serialised inference), `AppleTranslator` |
+| `LocalLLM` | MLX (mlx-swift-lm 3.33): `MLXRunner` (one loaded LLM, stops at end-of-turn), `MLXTranslator` (TranslateGemma prompt or chat) |
 | `ModelHub` | `ModelCatalog` (all cloud + local engines, prices, URLs, sizes, RAM), `ModelDownloads` (resumable HTTP Range, SHA-256), `ModelStorage` (`~/Library/Application Support/Subveil/Models/<id>`), `EngineFactory`, `BenchmarkRunner` + clips + WER |
 | `CatalogUI` | "Models & Providers" window: browse / compare / benchmark |
 | `SubveilBench` (exec) | `subveil-bench` CLI: list, download, test engines |
@@ -51,6 +52,9 @@ swift test                        # 24 tests: token assembly, Soniox models, moc
 scripts/build_app.sh              # release → build/Subveil.app (signed, hardened runtime)
 scripts/install_app.sh            # build + sign + install to ~/Applications/Subveil.app + launch
 scripts/install_app.sh "<identity>"   # use a specific signing identity (e.g. Developer ID)
+scripts/build_app.sh                # xcodebuild: MLX needs its Metal shaders (swift build cannot compile them)
+xcodebuild -scheme subveil-bench -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode -skipPackagePluginValidation -skipMacroValidation build
+.build/xcode/Build/Products/Release/subveil-bench test whisperkit-large-v3-turbo --clip he --translator mlx-translategemma-4b
 swift run subveil-bench list                       # catalog + what is installed
 swift run subveil-bench download whisperkit-large-v3-turbo
 swift run subveil-bench test ready --clip ru --target en   # every ready engine on the Russian clip
@@ -83,4 +87,8 @@ An ad-hoc signature changes with every build and makes macOS ask again.
 - Every engine speaks `SpeechStream` and emits Soniox-style tokens (final/non-final, original/translation, `<end>`), so the
   transcript assembler and UI are engine-agnostic. New adapters: implement `SpeechStream`, set `engine` on the catalog entry.
 - WhisperKit finds `tokenizer.json` in the model folder; the catalog downloads it there so nothing lands in a hidden cache.
+- MLX: `swift build` / `swift run` cannot compile Metal shaders → "Failed to load the default metallib". Build with xcodebuild
+  (the app script does); the metallib ships inside `mlx-swift_Cmlx.bundle` in Contents/Resources (never in Contents/MacOS —
+  codesign rejects non-code there). Apple Translation works only inside the app bundle, not from the CLI.
+- TranslateGemma does not declare `<end_of_turn>` as EOS: generation is stopped by token id in `MLXRunner`.
 - Soniox keys look like `snx_proj_…` (long, with `.`, `_`, `-`); a wrong key gives `401 Incorrect API key provided`.

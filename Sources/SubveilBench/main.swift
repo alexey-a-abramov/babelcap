@@ -1,4 +1,5 @@
 import Foundation
+import LocalEngines
 import ModelHub
 import SonioxClient
 
@@ -66,16 +67,17 @@ case "download":
 
 case "test":
     guard args.count >= 2 else { usage() }
-    var clipArg = "all", target: String? = "en"
+    var clipArg = "all", target: String? = "en", translatorArg = "whisper"
     var i = 2
     while i < args.count {
         if args[i] == "--clip", i + 1 < args.count { clipArg = args[i + 1]; i += 2 }
+        else if args[i] == "--translator", i + 1 < args.count { translatorArg = args[i + 1]; i += 2 }
         else if args[i] == "--target", i + 1 < args.count { target = args[i + 1] == "none" ? nil : args[i + 1]; i += 2 }
         else { i += 1 }
     }
     let key = sonioxKey()
     let entries: [CatalogEntry] = args[1] == "ready"
-        ? ModelCatalog.all.filter { EngineFactory.problem(for: $0, apiKey: key) == nil }
+        ? ModelCatalog.all.filter { !$0.isTranslator && EngineFactory.problem(for: $0, apiKey: key) == nil }
         : [ModelCatalog.entry(args[1])].compactMap { $0 }
     let clips = BenchmarkClips.all().filter { clipArg == "all" || $0.id == clipArg }
     guard !entries.isEmpty, !clips.isEmpty else { print("nothing to test (entries \(entries.count), clips \(clips.count))"); exit(1) }
@@ -84,7 +86,9 @@ case "test":
     for e in entries {
         if let p = EngineFactory.problem(for: e, apiKey: key) { print("\(pad(e.id, 34)) skipped: \(p)"); continue }
         for c in clips {
-            let r = await BenchmarkRunner.run(entry: e, clip: c, target: target, apiKey: key)
+            let translator: (any TextTranslator)? = translatorArg == "apple" ? AppleTextTranslator()
+                : ModelCatalog.entry(translatorArg).flatMap { TranslatorChoice.translator(for: $0) }
+            let r = await BenchmarkRunner.run(entry: e, clip: c, target: target, apiKey: key, translator: translator)
             let wer = r.wer.map { String(format: "%.0f%%", $0 * 100) } ?? "—"
             print("\(pad(e.id, 34)) \(pad(c.id, 4)) \(pad(wer, 6)) \(pad(r.speedText, 44)) \(r.verdict.title)\(r.error.map { " — \($0)" } ?? "")")
             print("      heard: \(r.transcript.prefix(160))")
@@ -96,6 +100,31 @@ case "test":
             }
         }
     }
+
+case "translate":
+    // subveil-bench translate <translator-id> <from> <to> "text"
+    guard args.count >= 5, let e = ModelCatalog.entry(args[1]), let tr = TranslatorChoice.translator(for: e) else { usage() }
+    let text = args[4...].joined(separator: " ")
+    let t0 = Date()
+    do {
+        let first = try await tr.translate(text, from: args[2], to: args[3])
+        let t1 = Date()
+        let again = try await tr.translate(text, from: args[2], to: args[3])
+        print("→ \(first)\n   first call \(String(format: "%.2f", t1.timeIntervalSince(t0))) s (incl. load), warm call \(String(format: "%.2f", Date().timeIntervalSince(t1))) s\n   (\(again == first ? "deterministic" : "second: " + again))")
+    } catch { print("error: \(error)") }
+
+case "raw":
+    // Diagnostics: one direct WhisperKit call on a clip — subveil-bench raw <model-id> <clip> [transcribe|translate] [lang|auto]
+    guard args.count >= 3, let e = ModelCatalog.entry(args[1]), let c = BenchmarkClips.all().first(where: { $0.id == args[2] }) else { usage() }
+    let task = args.count > 3 ? args[3] : "transcribe"
+    let lang: String? = args.count > 4 ? (args[4] == "auto" ? nil : args[4]) : c.language
+    do {
+        let pcm = try BenchmarkClips.pcm(c)
+        var floats = [Float](repeating: 0, count: pcm.count / 2)
+        pcm.withUnsafeBytes { raw in let s = raw.bindMemory(to: Int16.self); for i in floats.indices { floats[i] = Float(s[i]) / 32768 } }
+        let text = try await WhisperKitDiagnostics.run(folder: EngineFactory.modelFolder(for: e), audio: floats, translate: task == "translate", language: lang)
+        print("[\(task) lang=\(lang ?? "auto")] \(text)")
+    } catch { print("error: \(error)") }
 
 default:
     usage()

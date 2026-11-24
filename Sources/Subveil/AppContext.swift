@@ -5,6 +5,8 @@ import CatalogUI
 import ControlHUD
 import Overlay
 import SonioxClient
+import LocalEngines
+import ModelHub
 import SwiftUI
 import Transcript
 
@@ -46,6 +48,7 @@ final class AppContext {
         trackEngine()
         trackSettingsForEngine()
         HotKeys.shared.registerDefaults(self)
+        if CommandLine.arguments.contains("--selftest-translate") { selfTestTranslate(); return }
         if CommandLine.arguments.contains("--open-models") { openModelCatalog() }
         else if !settings.onboardingDone || !settings.hasAPIKey { showOnboarding() }
     }
@@ -156,6 +159,25 @@ final class AppContext {
         panel.nameFieldStringValue = "transcript.\(format.fileExtension)"
         panel.begin { resp in
             if resp == .OK, let url = panel.url { try? text.write(to: url, atomically: true, encoding: .utf8) }
+        }
+    }
+
+    /// Diagnostics: translate one sentence with the current translator inside the real app bundle, log it, quit.
+    private func selfTestTranslate() {
+        Task {
+            let useApple = CommandLine.arguments.contains("apple")
+            let tr: (any TextTranslator)? = useApple ? AppleTextTranslator() : TranslatorChoice.resolve(settings.translatorID)
+            let (text, src) = useApple ? ("Guten Morgen zusammen. Heute besprechen wir den Release-Plan.", "de")
+                                       : ("Доброе утро всем. Сегодня мы обсудим план релиза.", "ru")
+            let t0 = Date()
+            do {
+                let out = try await tr?.translate(text, from: src, to: "en") ?? "(no translator)"
+                Trace.log("selftest", "\(tr?.name ?? "-"): \(out) (\(String(format: "%.2f", Date().timeIntervalSince(t0))) s)")
+            } catch {
+                Trace.log("selftest", "\(tr?.name ?? "-") failed: \(error.localizedDescription)")
+            }
+            try? await Task.sleep(for: .milliseconds(300))
+            NSApp.terminate(nil)
         }
     }
 

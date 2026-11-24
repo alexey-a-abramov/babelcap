@@ -18,7 +18,7 @@ public struct ModelCatalogView: View {
     }
 
     public enum Tab: String, CaseIterable, Sendable { case browse = "Browse", compare = "Compare", benchmark = "Benchmark" }
-    enum Filter: String, CaseIterable { case all = "All", cloud = "Cloud", local = "On this Mac", ready = "Ready to use" }
+    enum Filter: String, CaseIterable { case all = "All", cloud = "Cloud", local = "On this Mac", translators = "Translators", ready = "Ready" }
 
     @State private var tab: Tab = .browse
     @State private var filter: Filter = .all
@@ -53,6 +53,7 @@ public struct ModelCatalogView: View {
             case .all: true
             case .cloud: e.kind == .cloud
             case .local: e.kind == .local
+            case .translators: e.kind == .translator
             case .ready: e.isReady
             }
         }.filter { search.isEmpty || "\($0.name) \($0.vendor) \($0.summary)".localizedCaseInsensitiveContains(search) }
@@ -69,7 +70,7 @@ public struct ModelCatalogView: View {
                         let items = entries.filter { $0.kind == kind }
                         if !items.isEmpty {
                             Section(kind.title) {
-                                ForEach(items) { e in EntryRow(entry: e, inUse: e.id == settings.providerID).tag(e.id) }
+                                ForEach(items) { e in EntryRow(entry: e, inUse: e.id == settings.providerID, settingsTranslatorID: settings.translatorID).tag(e.id) }
                             }
                         }
                     }
@@ -96,11 +97,12 @@ public struct ModelCatalogView: View {
 private struct EntryRow: View {
     let entry: CatalogEntry
     let inUse: Bool
+    var settingsTranslatorID = ""
     @State private var downloads = ModelDownloads.shared
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: entry.kind == .cloud ? "cloud" : "desktopcomputer")
+            Image(systemName: entry.kind == .cloud ? "cloud" : entry.isTranslator ? "character.bubble" : "desktopcomputer")
                 .frame(width: 22).foregroundStyle(entry.isReady ? Color.accentColor : .secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name).fontWeight(inUse ? .semibold : .regular).lineLimit(1)
@@ -120,7 +122,7 @@ private struct EntryRow: View {
 
     @ViewBuilder private var badge: some View {
         let st = downloads.status(entry.id)
-        if inUse {
+        if inUse || (entry.isTranslator && settingsTranslatorID == entry.id) {
             Tag(text: "In use", color: .blue)
         } else if st.phase == .downloading || st.phase == .listing || st.phase == .verifying {
             ProgressView(value: st.fraction).progressViewStyle(.circular).controlSize(.small)
@@ -167,7 +169,9 @@ private struct EntryDetail: View {
                 if entry.kind == .cloud { keySection }
                 if entry.needsDownload { downloadSection }
                 if entry.engine == .appleSpeech { appleSection }
-                if entry.isReady { TestCard(entry: entry, settings: settings) }
+                if entry.isTranslator, entry.isReady { TranslatorTestCard(entry: entry) }
+                else if entry.isReady { TestCard(entry: entry, settings: settings) }
+                if entry.kind == .local || entry.isTranslator { translatorPicker }
                 if !entry.notes.isEmpty {
                     Block(title: "Notes") {
                         ForEach(entry.notes, id: \.self) { Label($0, systemImage: "info.circle").fixedSize(horizontal: false, vertical: true) }
@@ -205,6 +209,24 @@ private struct EntryDetail: View {
     private var problem: String? { EngineFactory.problem(for: entry, apiKey: entry.needsAPIKey ? (hasKey ? "x" : nil) : nil) }
 
     @ViewBuilder private var useButton: some View {
+        if entry.isTranslator { translatorButton } else { engineButton }
+    }
+
+    @ViewBuilder private var translatorButton: some View {
+        let inUse = settings.translatorID == entry.id
+        VStack(alignment: .trailing, spacing: 4) {
+            Button { settings.translatorID = entry.id } label: {
+                Label(inUse ? "Translator in use" : "Use as translator", systemImage: inUse ? "checkmark.circle.fill" : "character.bubble")
+                    .frame(minWidth: 170)
+            }
+            .controlSize(.large).buttonStyle(.borderedProminent)
+            .disabled(inUse || problem != nil)
+            if let p = problem, !inUse { Text(p).font(.caption).foregroundStyle(.secondary) }
+            Text("Translates for Whisper and Apple on-device").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var engineButton: some View {
         let inUse = settings.providerID == entry.id
         VStack(alignment: .trailing, spacing: 4) {
             Button {
@@ -396,6 +418,26 @@ private struct EntryDetail: View {
         return t
     }
 
+    // MARK: Translator choice
+
+    private var translatorPicker: some View {
+        Block(title: "Translation for on-device engines") {
+            VStack(alignment: .leading, spacing: 6) {
+                Picker("Translator", selection: $settings.translatorID) {
+                    Text(TranslatorChoice.title(TranslatorChoice.auto)).tag(TranslatorChoice.auto)
+                    Text("Apple Translation").tag(TranslatorChoice.apple)
+                    Text("Whisper's own (into English only)").tag(TranslatorChoice.whisper)
+                    ForEach(ModelCatalog.all.filter(\.isTranslator)) { t in
+                        Text(t.name + (downloads.isInstalled(t.id) ? "" : " — not downloaded")).tag(t.id)
+                    }
+                }
+                .frame(maxWidth: 460)
+                Text("Soniox translates in the cloud by itself; this applies to Whisper and Apple on-device. Auto uses the first downloaded translation model, otherwise Apple Translation.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     // MARK: Apple
 
     private func checkTranslationPack() async {
@@ -423,6 +465,66 @@ private struct EntryDetail: View {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Localization-Settings.extension")!)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Translator test
+
+private struct TranslatorTestCard: View {
+    let entry: CatalogEntry
+    @State private var clipID = "ru"
+    @State private var target = "en"
+    @State private var running = false
+    @State private var output = ""
+    @State private var timing = ""
+    private let clips = BenchmarkClips.all()
+
+    var body: some View {
+        Block(title: "Test translation") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Picker("Text", selection: $clipID) { ForEach(clips) { Text($0.title).tag($0.id) } }.frame(maxWidth: 380)
+                    Picker("Into", selection: $target) { ForEach(Languages.all, id: \.code) { Text($0.name).tag($0.code) } }.frame(maxWidth: 200)
+                    Button(running ? "Translating…" : "Translate") { run() }.buttonStyle(.borderedProminent).disabled(running)
+                    if running { ProgressView().controlSize(.small) }
+                }
+                if let clip = clips.first(where: { $0.id == clipID }) {
+                    HStack(alignment: .top, spacing: 12) {
+                        box("Source (\(Languages.name(clip.language)))", clip.text)
+                        box("Translation → \(Languages.name(target))", output.isEmpty ? "—" : output)
+                    }
+                }
+                if !timing.isEmpty { Text(timing).font(.caption).foregroundStyle(.secondary) }
+            }
+        }
+    }
+
+    private func box(_ t: String, _ s: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(t).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text(s).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func run() {
+        guard let clip = clips.first(where: { $0.id == clipID }), let tr = TranslatorChoice.translator(for: entry) else { return }
+        running = true; output = ""; timing = ""
+        Task {
+            let sentences = clip.text.split(whereSeparator: { ".?!".contains($0) }).map { $0.trimmingCharacters(in: .whitespaces) + "." }.filter { $0.count > 1 }
+            let t0 = Date()
+            var parts: [String] = []
+            var first: Double?
+            for s in sentences {
+                let s0 = Date()
+                do { parts.append(try await tr.translate(s, from: clip.language, to: target)) } catch { parts.append("⚠︎ \(error.localizedDescription)") }
+                if first == nil { first = Date().timeIntervalSince(s0) }
+                output = parts.joined(separator: " ")
+            }
+            let total = Date().timeIntervalSince(t0)
+            timing = String(format: "%d sentences in %.2f s (first includes loading the model: %.2f s) — about %.2f s per sentence when warm",
+                            sentences.count, total, first ?? 0, sentences.count > 1 ? (total - (first ?? 0)) / Double(sentences.count - 1) : total)
+            running = false
         }
     }
 }
@@ -633,7 +735,7 @@ private struct BenchmarkPanel: View {
         let tgt = target == "none" ? nil : target
         let keychain = settings.keychain
         Task {
-            for entry in ModelCatalog.all where entry.isReady {
+            for entry in ModelCatalog.all where entry.isReady && !entry.isTranslator {
                 let kc = entry.id == "soniox" ? keychain : KeychainStore.forProvider(entry.id)
                 let key = entry.needsAPIKey ? await Task.detached { kc.load() }.value : nil
                 guard EngineFactory.problem(for: entry, apiKey: key) == nil else { continue }

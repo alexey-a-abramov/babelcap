@@ -5,15 +5,21 @@ import Foundation
 /// Source: "Real-Time Transcription + Translation: Model Catalog" research snapshot (Nov 2026). Prices are public
 /// pay-as-you-go rates and change; every entry links to the provider's own pricing page.
 public enum EngineKind: String, Codable, Sendable, CaseIterable {
-    case cloud, local
-    public var title: String { self == .cloud ? "Cloud (API key)" : "On this Mac" }
+    case cloud, local, translator
+    public var title: String {
+        switch self { case .cloud: "Cloud (API key)"; case .local: "On this Mac"; case .translator: "Translation models (on this Mac)" }
+    }
 }
+
+public enum TranslatorStyle: String, Hashable, Sendable { case translateGemma, chat }
 
 /// Which built-in adapter runs an entry.
 public enum EngineID: Hashable, Sendable {
     case soniox
     case appleSpeech
     case whisperKit(folder: String, translates: Bool)
+    /// A local MLX language model used as the text translator for on-device engines.
+    case mlxTranslator(TranslatorStyle)
 }
 
 /// Files to fetch from Hugging Face: every file under `path` (or the whole repo when empty), or only `files`.
@@ -61,6 +67,7 @@ public struct CatalogEntry: Identifiable, Hashable, Sendable {
 
     public var isReady: Bool { engine != nil }
     public var needsAPIKey: Bool { kind == .cloud }
+    public var isTranslator: Bool { kind == .translator }
     public var downloadBytes: Int64 { downloads.reduce(0) { $0 + $1.approxBytes } }
     public var needsDownload: Bool { !downloads.isEmpty }
 
@@ -107,6 +114,20 @@ public enum ModelCatalog {
             minRAMGB: ram, recommendedRAMGB: rec, engine: .whisperKit(folder: folder, translates: translates && !english), notes: notes)
     }
 
+    private static func translator(_ id: String, _ name: String, repo: String, mb size: Int64, style: TranslatorStyle,
+                                   ram: Int, rec: Int, license: String, summary: String, notes: [String] = []) -> CatalogEntry {
+        CatalogEntry(
+            id: id, name: name, vendor: "MLX · \(repo.split(separator: "/").first ?? "")", kind: .translator, summary: summary,
+            outputs: "Translated text (one sentence at a time)", languages: style == .translateGemma ? "55 languages" : "Many (see model card)",
+            translation: "Any supported pair, offline", realtime: "≈ 0.2–1 s per sentence on Apple Silicon", runtime: "MLX · GPU",
+            priceText: "Free · runs offline", docsURL: "https://huggingface.co/\(repo)", license: license,
+            downloads: [DownloadSpec(repo: repo, localDir: "model", approxBytes: size * mb, role: "Translation model (MLX 4-bit)")],
+            minRAMGB: ram, recommendedRAMGB: rec, engine: .mlxTranslator(style), notes: notes)
+    }
+
+    /// Preferred order for the "Auto" translator.
+    public static let translatorPreference = ["mlx-translategemma-4b", "mlx-translategemma-12b", "mlx-qwen3-4b", "mlx-eurollm-9b"]
+
     public static let all: [CatalogEntry] = [
         // MARK: Cloud — ready
         CatalogEntry(
@@ -150,6 +171,21 @@ public enum ModelCatalog {
                    summary: "Smallest model. Only for quick experiments."),
         whisperKit("whisperkit-distil-large-v3-turbo", "Distil-Whisper large-v3 turbo (English)", folder: "distil-whisper_distil-large-v3_turbo",
                    mb: 1527, ram: 8, rec: 16, summary: "Distilled large model: very fast, English speech only.", english: true),
+
+        // MARK: Translation models (MLX, run on the GPU)
+        translator("mlx-translategemma-4b", "TranslateGemma 4B", repo: "mlx-community/translategemma-4b-it-4bit", mb: 2230,
+                   style: .translateGemma, ram: 8, rec: 16, license: "Gemma Terms of Use",
+                   summary: "Google's translation-tuned Gemma: 55 languages including Russian and Hebrew. Small and fast — the recommended local translator.",
+                   notes: ["Recommended local translator.", "Used for Whisper and Apple on-device engines; Soniox translates in the cloud by itself."]),
+        translator("mlx-translategemma-12b", "TranslateGemma 12B", repo: "mlx-community/translategemma-12b-it-4bit", mb: 6660,
+                   style: .translateGemma, ram: 16, rec: 32, license: "Gemma Terms of Use",
+                   summary: "Larger TranslateGemma: better on idioms and long sentences, slower."),
+        translator("mlx-qwen3-4b", "Qwen3 4B Instruct", repo: "mlx-community/Qwen3-4B-Instruct-2507-4bit", mb: 2280,
+                   style: .chat, ram: 8, rec: 16, license: "Apache-2.0",
+                   summary: "General-purpose multilingual model; also writes meeting summaries."),
+        translator("mlx-eurollm-9b", "EuroLLM 9B Instruct", repo: "stelterlab/EuroLLM-9B-Instruct-MLX-4bit", mb: 5200,
+                   style: .chat, ram: 16, rec: 32, license: "Apache-2.0",
+                   summary: "European multilingual LLM (35 languages), the translator of the SimulStreaming cascade."),
 
         // MARK: Cloud — catalog (adapters planned)
         CatalogEntry(

@@ -12,6 +12,18 @@ $(swift build -c release --show-bin-path)/subveil-bench test ready --clip ru --t
 **Speed** = audio duration ÷ processing time, including the translation step when the engine performs one.
 Live captions need comfortably more than 1×. **WER** = word error rate against the script (0 % = perfect).
 
+## Fully local pipeline: Whisper large-v3 turbo + TranslateGemma 4B (MLX)
+
+Recognition by Whisper, sentence-by-sentence translation by TranslateGemma 4B (4-bit, GPU), both offline.
+
+| Clip | WER | Speed incl. translation | Translation |
+|---|---|---|---|
+| Russian → English | 0 % | 13.0× | "Good morning, everyone! Today we'll be discussing the release plan for next week and deciding who will be responsible for testing the new version of the app." |
+| Hebrew → English | 0 % | 11.0× | "Good morning everyone. Today we will go over the release plan for next week and decide who will be responsible for checking the new version of the app." |
+| English → Russian | 0 % | 14.4× | "Доброе утро, всем! Сегодня мы рассмотрим план выпуска на следующую неделю и определим, кто будет отвечать за тестирование новой версии приложения." |
+
+TranslateGemma 4B alone: ~0.2 s per sentence when warm (~150 tokens/s), ~0.6–0.8 s for the first call including load.
+
 ## Russian clip (→ English)
 
 | Engine | WER | Speed | Notes |

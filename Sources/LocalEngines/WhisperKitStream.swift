@@ -77,40 +77,53 @@ public actor WhisperKitPool {
 
 /// Whisper (Core ML via WhisperKit) as a live stream.
 ///
-/// Whisper is not natively streaming, so audio is cut into utterances at pauses: while someone speaks the current
-/// utterance is re-transcribed about once a second (draft), and after a 0.6 s pause it is transcribed once more and
-/// committed (final), then translated — into English by Whisper itself, into other languages by Apple Translation.
+/// Whisper is not natively streaming. The current utterance (audio since the last pause) is re-transcribed about every
+/// 0.7 s; words that two consecutive passes agree on are committed right away (LocalAgreement-2), the rest is shown as
+/// a draft. A committed sentence (ending in . ? !) becomes its own line and is translated immediately by the text
+/// translator (Apple Translation or a local LLM). After a 0.6 s pause the utterance is transcribed once more and closed.
+/// Without a text translator, Whisper's own audio translation into English is used per utterance.
 public actor WhisperKitStream: SpeechStream {
     public nonisolated let events: AsyncStream<SonioxEvent>
     private let continuation: AsyncStream<SonioxEvent>.Continuation
     private let config: SonioxConfig
     private let modelFolder: URL
-    /// turbo / distil models were not trained for Whisper's translate task — use Apple Translation instead.
+    /// turbo / distil models were not trained for Whisper's translate task.
     private let whisperTranslates: Bool
-    private var lastDraftAt = Date.distantPast
+    private let translator: (any TextTranslator)?
 
     static let rate = 16_000
     private let silenceThreshold: Float = 0.012
     private let endOfUtteranceSilence = Int(0.6 * Double(rate))
     private let maxUtterance = 20 * rate
-    private let draftEvery = rate
+    private let passEvery: TimeInterval = 0.7
 
     private var pipe: WhisperKit?
     private var samples: [Float] = []
     private var speechSeen = false
     private var silenceRun = 0
-    private var sinceDraft = 0
-    private var draftBusy = false
-    private var queue: [[Float]] = []
+    private var lastPassAt = Date.distantPast
+    private var passBusy = false
+    private var started = false
+    private var warned = false
+
+    // Utterance state (LocalAgreement)
+    private var utteranceID = 0
+    private var previousHypothesis: [String] = []
+    private var committedWords = 0              // words of this utterance already emitted as final
+    private var openSentence: [String] = []     // committed words not yet closed as a line
+    private var language: String?
+
+    // Committed utterances waiting for their final pass, processed in order.
+    private struct Pending { let audio: [Float]; let committed: Int; let openSentence: [String]; let language: String? }
+    private var queue: [Pending] = []
     private var processing = false
     private var emitter = TokenEmitter()
-    private var started = false
-    private var translationWarned = false
 
-    public init(modelFolder: URL, config: SonioxConfig, whisperTranslates: Bool = true) {
+    public init(modelFolder: URL, config: SonioxConfig, whisperTranslates: Bool = true, translator: (any TextTranslator)? = nil) {
         self.modelFolder = modelFolder
         self.config = config
         self.whisperTranslates = whisperTranslates
+        self.translator = translator
         var c: AsyncStream<SonioxEvent>.Continuation!
         events = AsyncStream(bufferingPolicy: .unbounded) { c = $0 }
         continuation = c
@@ -145,7 +158,6 @@ public actor WhisperKitStream: SpeechStream {
         if rms > silenceThreshold { speechSeen = true; silenceRun = 0 } else { silenceRun += floats.count }
 
         if !speechSeen {
-            // Keep only a little leading silence.
             if samples.count > Self.rate / 2 { samples.removeFirst(samples.count - Self.rate / 4) }
             return
         }
@@ -153,12 +165,10 @@ public actor WhisperKitStream: SpeechStream {
             commitUtterance()
             return
         }
-        // Drafts at most once per second of *wall* time: they are a preview; committed text must keep up first.
-        sinceDraft += floats.count
-        if sinceDraft >= draftEvery, !draftBusy, !processing, Date().timeIntervalSince(lastDraftAt) >= 1 {
-            sinceDraft = 0
-            lastDraftAt = Date()
-            await draft()
+        // Agreement passes at most every 0.7 s of wall time; committing finished utterances comes first.
+        if !passBusy, !processing, Date().timeIntervalSince(lastPassAt) >= passEvery, samples.count >= Self.rate / 2 {
+            lastPassAt = Date()
+            await agreementPass()
         }
     }
 
@@ -175,21 +185,7 @@ public actor WhisperKitStream: SpeechStream {
         continuation.finish()
     }
 
-    // MARK: Work
-
-    private func commitUtterance() {
-        queue.append(samples)
-        samples = []
-        speechSeen = false
-        silenceRun = 0
-        sinceDraft = 0
-        if !processing { Task { await processQueue() } }
-    }
-
-    private func drain() async {
-        if !processing, !queue.isEmpty { await processQueue() }
-        while processing || !queue.isEmpty { try? await Task.sleep(for: .milliseconds(20)) }
-    }
+    // MARK: Streaming
 
     private var fixedLanguage: String? {
         guard let hints = config.languageHints, hints.count == 1 else { return nil }
@@ -201,62 +197,129 @@ public actor WhisperKitStream: SpeechStream {
                         detectLanguage: language == nil, skipSpecialTokens: true, withoutTimestamps: true)
     }
 
-    private func draft() async {
+    /// Text translation is used when a translator is set (and needed); otherwise Whisper translates audio per utterance.
+    private var translatesText: Bool { translator != nil && config.translation != nil }
+
+    private func agreementPass() async {
         guard let pipe else { return }
-        draftBusy = true
-        defer { draftBusy = false }
+        passBusy = true
+        defer { passBusy = false }
+        let id = utteranceID
         let audio = samples
-        guard let r = try? await WhisperKitPool.shared.transcribe(pipe, audio: audio, options: options(.transcribe, language: fixedLanguage)) else { return }
-        let text = r.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, speechSeen else { return }  // the utterance may have been committed meanwhile
-        emitter.draftOriginal = text
-        emitter.draftLanguage = r.first?.language
+        guard let r = try? await WhisperKitPool.shared.transcribe(pipe, audio: audio, options: options(.transcribe, language: language ?? fixedLanguage)),
+              id == utteranceID else { return }   // the utterance was committed meanwhile
+        let hyp = Words.split(Self.clean(r.map(\.text).joined(separator: " ")))
+        Trace.log("whisperkit", "pass lang=\(language ?? fixedLanguage ?? "auto") detected=\(r.first?.language ?? "-") words=\(hyp.count) committed=\(committedWords)")
+        // With a fixed language WhisperKit reports "en" as the result language — never trust it then.
+        if language == nil, !hyp.isEmpty { language = fixedLanguage ?? r.first?.language }
+
+        // Words both passes agree on (beyond what is already committed) become final now.
+        let agreed = Words.commonPrefix(previousHypothesis, hyp)
+        previousHypothesis = hyp
+        if agreed > committedWords {
+            let fresh = Array(hyp[committedWords..<agreed])
+            committedWords = agreed
+            await commit(words: fresh)
+        }
+        emitter.draftOriginal = hyp.count > committedWords ? (committedWords > 0 ? " " : "") + hyp[committedWords...].joined(separator: " ") : ""
+        emitter.draftLanguage = language
         continuation.yield(.tokens(emitter.batch()))
+    }
+
+    /// Emits committed words; a finished sentence closes its line and is translated right away (text translator only).
+    private func commit(words: [String]) async {
+        for w in words {
+            let text = (openSentence.isEmpty ? "" : " ") + w
+            openSentence.append(w)
+            continuation.yield(.tokens(emitter.batch(finalOriginal: text, language: language)))
+            if translatesText, Words.endsSentence(w) {
+                let sentence = openSentence.joined(separator: " ")
+                openSentence = []
+                continuation.yield(.tokens(emitter.batch(endOriginal: true)))
+                await translateLine(sentence, audio: nil)
+            }
+        }
+    }
+
+    // MARK: Utterance end
+
+    private func commitUtterance() {
+        queue.append(Pending(audio: samples, committed: committedWords, openSentence: openSentence, language: language))
+        samples = []
+        speechSeen = false
+        silenceRun = 0
+        utteranceID += 1
+        previousHypothesis = []
+        committedWords = 0
+        openSentence = []
+        language = nil
+        if !processing { Task { await processQueue() } }
+    }
+
+    private func drain() async {
+        if !processing, !queue.isEmpty { await processQueue() }
+        while processing || !queue.isEmpty || passBusy { try? await Task.sleep(for: .milliseconds(20)) }
     }
 
     private func processQueue() async {
         guard !processing else { return }
         processing = true
         defer { processing = false }
-        while !queue.isEmpty {
-            let audio = queue.removeFirst()
-            await transcribeFinal(audio)
+        while !queue.isEmpty { await finish(queue.removeFirst()) }
+    }
+
+    /// Final pass over the whole utterance: emit the words not committed yet, close the line, translate.
+    private func finish(_ u: Pending) async {
+        guard let pipe else { return }
+        do {
+            let r = try await WhisperKitPool.shared.transcribe(pipe, audio: u.audio, options: options(.transcribe, language: u.language ?? fixedLanguage))
+            let words = Words.split(Self.clean(r.map(\.text).joined(separator: " ")))
+            let lang = fixedLanguage ?? u.language ?? r.first?.language
+            emitter.draftOriginal = ""
+            emitter.draftTranslation = ""
+
+            var line = u.openSentence
+            if words.count > u.committed {
+                let rest = words[u.committed...]
+                let text = (line.isEmpty ? "" : " ") + rest.joined(separator: " ")
+                line += rest
+                continuation.yield(.tokens(emitter.batch(finalOriginal: text, language: lang)))
+            }
+            // Everything was already closed sentence by sentence: just clear the draft.
+            if line.isEmpty { continuation.yield(.tokens(emitter.batch())); return }
+            continuation.yield(.tokens(emitter.batch(endOriginal: true)))
+            // Without text translation the whole utterance is one line, translated from its audio.
+            await translateLine(line.joined(separator: " "), audio: translatesText ? nil : u.audio, language: lang)
+        } catch {
+            Trace.log("whisperkit", "final pass failed: \(error.localizedDescription)")
         }
     }
 
-    private func transcribeFinal(_ audio: [Float]) async {
-        guard let pipe else { return }
-        do {
-            let r = try await WhisperKitPool.shared.transcribe(pipe, audio: audio, options: options(.transcribe, language: fixedLanguage))
-            let text = Self.clean(r.map(\.text).joined(separator: " "))
-            let lang = r.first?.language ?? fixedLanguage
-            emitter.draftOriginal = ""
-            emitter.draftTranslation = ""
-            guard !text.isEmpty else { continuation.yield(.tokens(emitter.batch())); return }
-            continuation.yield(.tokens(emitter.batch(finalOriginal: text, language: lang, endOriginal: true)))
-
-            guard let target = config.translationTarget(forSource: lang), !sameLanguage(target, lang) else { return }
-            var translated: String?
-            if sameLanguage(target, "en"), whisperTranslates {
-                // Whisper translates into English natively (not the turbo / distil variants).
-                let t = try await WhisperKitPool.shared.transcribe(pipe, audio: audio, options: options(.translate, language: lang))
+    private func translateLine(_ text: String, audio: [Float]?, language lang: String? = nil) async {
+        let source = lang ?? language
+        guard let target = config.translationTarget(forSource: source), !sameLanguage(target, source) else { return }
+        var translated: String?
+        if let translator, translatesText {
+            do { translated = try await translator.translate(text, from: source, to: target) } catch {
+                await warn(translator.problem(from: source, to: target) ?? error.localizedDescription)
+            }
+        } else if let audio, let pipe, sameLanguage(target, "en"), whisperTranslates {
+            if let t = try? await WhisperKitPool.shared.transcribe(pipe, audio: audio, options: options(.translate, language: source)) {
                 let out = Self.clean(t.map(\.text).joined(separator: " "))
                 if !out.isEmpty, out != text, !Self.hasNonLatinLetters(out) { translated = out }
             }
-            if translated == nil, #available(macOS 26.0, *), let src = lang {
-                do { translated = try await AppleTranslator.shared.translate(text, from: src, to: target) } catch {
-                    if !translationWarned {
-                        translationWarned = true
-                        continuation.yield(.error(SonioxError(code: 0, message: await LocalTranslationHelp.explain(source: src, target: target))))
-                    }
-                }
-            }
-            if let translated, !translated.isEmpty {
-                continuation.yield(.tokens(emitter.batch(finalTranslation: translated, endTranslation: true)))
-            }
-        } catch {
-            Trace.log("whisperkit", "transcribe failed: \(error.localizedDescription)")
+        } else {
+            await warn("No translator for \(source ?? "?") → \(target): choose Apple Translation or a local translation model in Models & Providers.")
         }
+        if let translated, !translated.isEmpty {
+            continuation.yield(.tokens(emitter.batch(finalTranslation: translated, endTranslation: true)))
+        }
+    }
+
+    private func warn(_ message: String) async {
+        guard !warned else { return }
+        warned = true
+        continuation.yield(.error(SonioxError(code: 0, message: message)))
     }
 
     static func hasNonLatinLetters(_ s: String) -> Bool {
@@ -270,5 +333,16 @@ public actor WhisperKitStream: SpeechStream {
         let junk = ["[BLANK_AUDIO]", "[Music]", "(music)", "[MUSIC]", "Thank you.", "Thanks for watching!"]
         if junk.contains(t) { t = "" }
         return t
+    }
+}
+
+/// Direct single-call access for diagnostics (subveil-bench raw).
+public enum WhisperKitDiagnostics {
+    public static func run(folder: URL, audio: [Float], translate: Bool, language: String?, prefill: Bool = true) async throws -> String {
+        let pipe = try await WhisperKitPool.shared.pipe(modelFolder: folder)
+        let o = DecodingOptions(verbose: false, task: translate ? .translate : .transcribe, language: language, temperature: 0,
+                                usePrefillPrompt: prefill, detectLanguage: language == nil, skipSpecialTokens: true, withoutTimestamps: true)
+        let r = try await WhisperKitPool.shared.transcribe(pipe, audio: audio, options: o)
+        return r.map(\.text).joined(separator: " ") + "   (detected \(r.first?.language ?? "-"))"
     }
 }

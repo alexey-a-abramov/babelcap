@@ -14,7 +14,7 @@ public enum EngineFactory {
         switch engine {
         case .soniox: if (apiKey ?? "").isEmpty { return "Add your API key first." }
         case .appleSpeech: break
-        case .whisperKit: if !ModelDownloads.shared.isInstalled(entry.id) { return "Download the model first." }
+        case .whisperKit, .mlxTranslator: if !ModelDownloads.shared.isInstalled(entry.id) { return "Download the model first." }
         }
         return nil
     }
@@ -24,17 +24,17 @@ public enum EngineFactory {
     }
 
     public static func makeStream(for entry: CatalogEntry, config: SonioxConfig, apiKey: String?,
-                                  endpoint: URL = SonioxSession.endpoint) throws -> any SpeechStream {
+                                  endpoint: URL = SonioxSession.endpoint, translator: (any TextTranslator)? = nil) throws -> any SpeechStream {
         switch entry.engine {
         case .soniox?:
             return SonioxSession(apiKey: apiKey ?? "", config: config, endpoint: endpoint)
         case .appleSpeech?:
             guard #available(macOS 26.0, *) else { throw LocalEngineError.needsNewerMacOS(26) }
-            return AppleSpeechStream(config: config)
+            return AppleSpeechStream(config: config, translator: translator ?? AppleTextTranslator())
         case let .whisperKit(_, translates)?:
-            return WhisperKitStream(modelFolder: modelFolder(for: entry), config: config, whisperTranslates: translates)
-        case nil:
-            throw LocalEngineError.modelMissing("\(entry.name) has no adapter yet.")
+            return WhisperKitStream(modelFolder: modelFolder(for: entry), config: config, whisperTranslates: translates, translator: translator)
+        case .mlxTranslator?, nil:
+            throw LocalEngineError.modelMissing("\(entry.name) is not a speech engine.")
         }
     }
 }
@@ -180,6 +180,7 @@ public enum BenchmarkRunner {
     /// Runs one clip through one engine. Local engines get the audio as fast as they accept it (measures speed);
     /// cloud engines get it in real time (measures latency).
     public static func run(entry: CatalogEntry, clip: BenchmarkClip, target: String?, apiKey: String?,
+                           translator: (any TextTranslator)? = nil,
                            progress: (@Sendable (String) -> Void)? = nil) async -> BenchmarkResult {
         var result = BenchmarkResult(entryID: entry.id, clipID: clip.id)
         result.isCloud = entry.kind == .cloud
@@ -196,7 +197,7 @@ public enum BenchmarkRunner {
         let stream: any SpeechStream
         do {
             pcm = try BenchmarkClips.pcm(clip)
-            stream = try EngineFactory.makeStream(for: entry, config: config, apiKey: apiKey)
+            stream = try EngineFactory.makeStream(for: entry, config: config, apiKey: apiKey, translator: translator)
         } catch {
             result.error = error.localizedDescription
             return result
@@ -207,7 +208,7 @@ public enum BenchmarkRunner {
         if entry.kind == .local {
             progress?("Warming up \(entry.name)…")
             let warmStart = Date()
-            if let warm = try? EngineFactory.makeStream(for: entry, config: config, apiKey: apiKey) {
+            if let warm = try? EngineFactory.makeStream(for: entry, config: config, apiKey: apiKey, translator: translator) {
                 let drain = Task { for await _ in warm.events {} }
                 await warm.start()
                 await warm.send(pcm.prefix(min(pcm.count, 32_000 * 3)))

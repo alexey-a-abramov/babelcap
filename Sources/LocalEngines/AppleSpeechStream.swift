@@ -28,8 +28,11 @@ public actor AppleSpeechStream: SpeechStream {
     private var translationWarned = false
     private var started = false
 
-    public init(config: SonioxConfig) {
+    private let translator: any TextTranslator
+
+    public init(config: SonioxConfig, translator: any TextTranslator = AppleTextTranslator()) {
         self.config = config
+        self.translator = translator
         var c: AsyncStream<SonioxEvent>.Continuation!
         events = AsyncStream(bufferingPolicy: .unbounded) { c = $0 }
         continuation = c
@@ -75,8 +78,9 @@ public actor AppleSpeechStream: SpeechStream {
                     await self?.fail(error)
                 }
             }
-            if let target, await AppleTranslator.readiness(from: language, to: target) != .installed {
-                warnTranslation(target)
+            if let target, let p = await translator.problem(from: language, to: target) {
+                continuation.yield(.error(SonioxError(code: 0, message: p)))
+                translationWarned = true
             }
             Trace.log("apple-speech", "live: \(locale.identifier), translate → \(target ?? "off"), format \(format.sampleRate) Hz")
             continuation.yield(.state(.live))
@@ -153,7 +157,7 @@ public actor AppleSpeechStream: SpeechStream {
         continuation.yield(.tokens(emitter.batch(endOriginal: true)))
         guard let target else { return }
         do {
-            let tr = try await AppleTranslator.shared.translate(text, from: language, to: target)
+            let tr = try await translator.translate(text, from: language, to: target)
             emitter.draftTranslation = ""
             continuation.yield(.tokens(emitter.batch(finalTranslation: tr, endTranslation: true)))
         } catch {
@@ -166,7 +170,7 @@ public actor AppleSpeechStream: SpeechStream {
         lastDraftTranslation = Date()
         let source = language, current = sentence.isEmpty ? text : sentence + " " + text
         draftTranslateTask = Task { [weak self] in
-            let tr = try? await AppleTranslator.shared.translate(current, from: source, to: target)
+            let tr = try? await self?.translator.translate(current, from: source, to: target)
             await self?.setDraftTranslation(tr)
         }
     }

@@ -42,6 +42,7 @@ final class Runtime {
     /// Config of the current Soniox session (to detect what a settings change actually affects).
     var config: SonioxConfig?
     var providerID = ""
+    var translatorID = ""
     var pricePerHour: Double = 0
     var mixer: ChunkMixer?
 
@@ -233,7 +234,8 @@ public final class CaptionsEngine {
         await reconcile()
         var swapped = 0
         for rt in runtimes.values where rt.conn != .autoPaused && rt.config != nil
-            && (rt.config != makeConfig(for: rt.kind) || rt.providerID != provider.id) {
+            && (rt.config != makeConfig(for: rt.kind) || rt.providerID != provider.id
+                || (provider.kind == .local && rt.translatorID != settings.translatorID)) {
             Trace.log("engine", "config changed for \(rt.kind.rawValue) → new session")
             await swapSession(rt)
             swapped += 1
@@ -429,6 +431,7 @@ public final class CaptionsEngine {
         let entry = provider
         rt.config = cfg
         rt.providerID = entry.id
+        rt.translatorID = settings.translatorID
         rt.hasTranslation = cfg.translation != nil
         rt.pricePerHour = entry.id == "soniox" ? (cfg.translation != nil ? 0.18 : 0.12) : (entry.pricePerHour ?? 0)
         Trace.log("engine", "open session \(rt.kind.rawValue) on \(entry.id): translation=\(cfg.translation != nil) diarization=\(cfg.enableSpeakerDiarization) hints=\(cfg.languageHints ?? [])")
@@ -436,7 +439,9 @@ public final class CaptionsEngine {
         if entry.engine == .soniox {
             s = SonioxSession(apiKey: apiKey, config: cfg, endpoint: endpoint)
         } else {
-            do { s = try EngineFactory.makeStream(for: entry, config: cfg, apiKey: apiKey) } catch {
+            let translator = TranslatorChoice.resolve(settings.translatorID)
+            Trace.log("engine", "translator: \(translator?.name ?? "Whisper (audio)")")
+            do { s = try EngineFactory.makeStream(for: entry, config: cfg, apiKey: apiKey, translator: translator) } catch {
                 lastError = "\(entry.name): \(error.localizedDescription)"
                 s = FailedStream(error.localizedDescription)
             }
