@@ -45,6 +45,7 @@ Open **Models & Providers** (menu bar, the control panel's gear, or Settings) �
 - **Cloud** — Soniox (the most accurate and cheapest, ~$0.12–0.18/h), Gladia, Speechmatics, OpenAI
   realtime-translate, Gemini Live Translate, ElevenLabs Scribe and Azure Speech Translation, each with your own key.
   AssemblyAI and Deepgram are listed with prices, where to get a key and where to top up.
+  Step-by-step key guides for every provider: [docs/api-keys](docs/api-keys/README.md) (the app links to them too).
 - **On this Mac, free and offline** — OpenAI Whisper via WhisperKit (tiny → large-v3) or Apple's on-device speech
   (macOS 26) for recognition, and **TranslateGemma / Qwen3 / EuroLLM via MLX** for translation into any of 55 languages
   (Russian and Hebrew included). Words appear while people speak; each sentence is translated as soon as it ends.
