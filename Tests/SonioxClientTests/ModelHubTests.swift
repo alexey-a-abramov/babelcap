@@ -45,6 +45,18 @@ final class CatalogTests: XCTestCase {
         }
     }
 
+    func testEveryCloudProviderHasAKeyGuideInTheRepo() throws {
+        let docs = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("docs/api-keys")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: docs.appendingPathComponent("README.md").path))
+        for e in ModelCatalog.all where e.needsAPIKey {
+            let url = try XCTUnwrap(e.keyGuideURL, "\(e.id) has no key guide")
+            XCTAssertTrue(url.absoluteString.hasPrefix("https://github.com/alexey-a-abramov/subveil/blob/main/docs/api-keys/"))
+            XCTAssertTrue(FileManager.default.fileExists(atPath: docs.appendingPathComponent(url.lastPathComponent).path),
+                          "missing docs/api-keys/\(url.lastPathComponent)")
+        }
+    }
+
     @MainActor
     func testProblemsExplainWhatIsMissing() {
         XCTAssertNotNil(EngineFactory.problem(for: ModelCatalog.entry("soniox")!, apiKey: nil), "no key")

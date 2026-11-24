@@ -73,6 +73,10 @@ public struct CatalogEntry: Identifiable, Hashable, Sendable {
 
     public var isReady: Bool { engine != nil }
     public var needsAPIKey: Bool { kind == .cloud }
+    /// Step-by-step "how to get a key" page in the repo (docs/api-keys/<file>.md), opened on GitHub.
+    public var keyGuideURL: URL? {
+        ModelCatalog.keyGuides[id].flatMap { URL(string: ModelCatalog.keyGuidesBase + $0) }
+    }
     public var isTranslator: Bool { kind == .translator }
     public var downloadBytes: Int64 { downloads.reduce(0) { $0 + $1.approxBytes } }
     public var needsDownload: Bool { !downloads.isEmpty }
@@ -95,6 +99,16 @@ public struct CatalogEntry: Identifiable, Hashable, Sendable {
 public enum ModelCatalog {
     public static func entry(_ id: String) -> CatalogEntry? { all.first { $0.id == id } }
     public static let defaultProviderID = "soniox"
+
+    /// Where the key guides are published. The files live in docs/api-keys/ of this repository.
+    public static let keyGuidesBase = "https://github.com/alexey-a-abramov/subveil/blob/main/docs/api-keys/"
+    public static let keyGuidesIndex = URL(string: keyGuidesBase + "README.md")!
+    /// Catalog id → guide file name. Every cloud entry must have one (checked by a test).
+    public static let keyGuides: [String: String] = [
+        "soniox": "soniox.md", "gladia": "gladia.md", "speechmatics": "speechmatics.md",
+        "openai-translate": "openai.md", "gemini-live": "gemini.md", "elevenlabs-scribe": "elevenlabs.md",
+        "azure-translate": "azure.md", "azure-interpreter": "azure.md", "assemblyai": "assemblyai.md", "deepgram": "deepgram.md",
+    ]
 
     private static let mb: Int64 = 1_000_000
 

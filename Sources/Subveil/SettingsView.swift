@@ -50,6 +50,10 @@ private struct AccountTab: View {
                 }
                 Text("The key is stored only in the macOS Keychain. It is never written to logs or exported profiles.")
                     .font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 14) {
+                    if let guide = ModelCatalog.entry("soniox")?.keyGuideURL { Link("How to get a Soniox key ↗", destination: guide) }
+                    Link("Guides for all providers ↗", destination: ModelCatalog.keyGuidesIndex)
+                }.font(.caption)
             }
             Section("Speech engine") {
                 HStack {

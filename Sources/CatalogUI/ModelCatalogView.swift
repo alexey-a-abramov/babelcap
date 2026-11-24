@@ -306,7 +306,7 @@ private struct EntryDetail: View {
     private var keySection: some View {
         Block(title: "API key") {
             VStack(alignment: .leading, spacing: 10) {
-                Text("How to get one: 1) create an account, 2) create an API key in the console, 3) paste it here. You pay \(entry.vendor) directly for what you use; top up or set a budget on their billing page.")
+                Text("Create an account with \(entry.vendor), create an API key, paste it here. You pay \(entry.vendor) directly for what you use. The step-by-step guide has the exact links.")
                     .fixedSize(horizontal: false, vertical: true).foregroundStyle(.secondary)
                 if entry.engine == .azureTranslate {
                     HStack {
@@ -325,6 +325,7 @@ private struct EntryDetail: View {
                 }
                 if let keyStatus { Text(keyStatus).foregroundStyle(keyStatus.hasPrefix("✓") ? .green : .red) }
                 HStack(spacing: 14) {
+                    if let u = entry.keyGuideURL { Link("Step-by-step guide ↗", destination: u).fontWeight(.semibold) }
                     if let u = entry.keyURL { Link("Get an API key ↗", destination: u) }
                     if let u = entry.pricingURL { Link("Pricing / top up balance ↗", destination: u) }
                 }

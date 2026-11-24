@@ -136,7 +136,10 @@ struct OnboardingView: View {
                 if let s = keyStatus { Text(s).font(.callout).foregroundStyle(s.hasPrefix("✓") ? .green : .red) }
                 else if settings.hasAPIKey { Text("✓ Key already saved").foregroundStyle(.green).font(.callout) }
             }
-            Link("Get a key at console.soniox.com", destination: URL(string: "https://console.soniox.com")!).font(.callout)
+            HStack(spacing: 14) {
+                Link("Get a key at console.soniox.com", destination: URL(string: "https://console.soniox.com")!)
+                if let guide = ModelCatalog.entry("soniox")?.keyGuideURL { Link("Step-by-step guide ↗", destination: guide) }
+            }.font(.callout)
         }
     }
 
