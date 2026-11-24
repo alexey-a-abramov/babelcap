@@ -76,3 +76,27 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertTrue(l.separateSources)
     }
 }
+
+final class SpeakerColorTests: XCTestCase {
+    func testColourModes() {
+        var a = AppearanceSettings()
+        XCTAssertEqual(a.colorMode, .speaker, "speaker colours by default")
+        XCTAssertEqual(a.color(isMic: false, speaker: "2"), a.speakerPalette[1])
+        XCTAssertEqual(a.color(isMic: false, speaker: "7"), a.speakerPalette[0], "palette cycles")
+        XCTAssertEqual(a.color(isMic: true, speaker: nil), a.meColor, "no diarization → source colour")
+        a.colorMode = .source
+        XCTAssertEqual(a.color(isMic: false, speaker: "2"), a.themColor)
+        a.colorMode = .single
+        XCTAssertEqual(a.color(isMic: true, speaker: "1"), a.textColor)
+    }
+
+    func testOldAppearanceDecodes() throws {
+        // Saved before colour modes existed, with "colour by source" switched off.
+        let enc = try JSONEncoder().encode(AppearanceSettings())
+        var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: enc) as? [String: Any])
+        obj.removeValue(forKey: "colorMode"); obj.removeValue(forKey: "speakerPalette"); obj["speakerColors"] = false
+        let a = try JSONDecoder().decode(AppearanceSettings.self, from: JSONSerialization.data(withJSONObject: obj))
+        XCTAssertEqual(a.colorMode, .single)
+        XCTAssertFalse(a.speakerPalette.isEmpty)
+    }
+}

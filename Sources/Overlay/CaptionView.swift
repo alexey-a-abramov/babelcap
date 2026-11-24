@@ -335,9 +335,15 @@ public struct CaptionView: View {
     }
 
     private func sourceColor(_ s: Segment) -> Color {
-        guard p.appearance.speakerColors else { return p.appearance.textColor.color }
-        return s.source == .mic ? p.appearance.meColor.color : p.appearance.themColor.color
+        p.appearance.color(isMic: s.source == .mic, speaker: s.speaker).color
     }
+
+    /// Translation uses the speaker's colour in "by speaker" mode (it is often the only line shown).
+    private func translationColor(_ s: Segment) -> Color {
+        p.appearance.colorMode == .speaker && s.speaker != nil ? sourceColor(s) : p.appearance.translationColor.color
+    }
+
+
 
     private func originalText(_ s: Segment) -> AttributedString {
         let a = p.appearance
@@ -345,7 +351,7 @@ public struct CaptionView: View {
         var meta: [String] = []
         if p.content.showTimestamp { meta.append(s.createdAt.formatted(date: .omitted, time: .standard)) }
         if p.content.showSourceLabel, filter == nil { meta.append(s.source.label) }
-        if p.content.showSpeaker, let sp = s.speaker { meta.append("#\(sp)") }
+        if p.content.showSpeaker, let sp = s.speaker { meta.append("Speaker \(sp)") }
         if p.content.showLanguage, let l = s.language { meta.append(l.uppercased()) }
         if !meta.isEmpty {
             var m = AttributedString(meta.joined(separator: " · ") + "  ")
@@ -361,12 +367,21 @@ public struct CaptionView: View {
 
     private func translationText(_ s: Segment) -> AttributedString {
         let a = p.appearance
+        var out = AttributedString()
+        // Speaker marker when only the translation is shown, so you can still tell who is talking.
+        if p.content.showSpeaker, let sp = s.speaker, !lines(s).original {
+            var m = AttributedString("Speaker \(sp)  ")
+            m.foregroundColor = translationColor(s).opacity(0.7)
+            m.font = .system(size: a.translation.size * 0.55, weight: .semibold)
+            out += m
+        }
         var fin = AttributedString(a.translation.uppercase ? s.translation.uppercased() : s.translation)
-        fin.foregroundColor = a.translationColor.color
+        fin.foregroundColor = translationColor(s)
         var dr = AttributedString(a.translation.uppercase ? s.draftTranslation.uppercased() : s.draftTranslation)
-        dr.foregroundColor = a.translationColor.color.opacity(0.55)
-        return fin + dr
+        dr.foregroundColor = translationColor(s).opacity(0.55)
+        return out + fin + dr
     }
+
 }
 
 private struct TextEffects: ViewModifier {
@@ -384,6 +399,6 @@ public enum CaptionSamples {
     public static let segments: [Segment] = [
         Segment(id: 1, source: .system, speaker: "1", language: "he", original: "בואו נעבור על תוכנית השחרור לשבוע הבא.", translation: "Let's go over the release plan for next week.", isClosed: true),
         Segment(id: 2, source: .mic, language: "ru", original: "Хорошо, я подготовил список изменений.", translation: "Okay, I prepared the list of changes.", isClosed: true),
-        Segment(id: 3, source: .system, speaker: "1", language: "en", original: "Great. The main risk is the", translation: "", draftOriginal: " migration"),
+        Segment(id: 3, source: .system, speaker: "2", language: "en", original: "Great. The main risk is the", translation: "", draftOriginal: " migration"),
     ]
 }

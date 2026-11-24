@@ -331,7 +331,11 @@ public struct ControlView: View {
                     LazyVStack(alignment: .leading, spacing: 6) {
                         ForEach(items.suffix(200)) { s in
                             VStack(alignment: .leading, spacing: 1) {
-                                Text("\(s.source.label)\(s.speaker.map { " · #\($0)" } ?? "")").font(.caption2).foregroundStyle(.secondary)
+                                HStack(spacing: 4) {
+                                    Circle().fill(settings.profile.appearance.color(isMic: s.source == .mic, speaker: s.speaker).color)
+                                        .frame(width: 7, height: 7)
+                                    Text("\(s.source.label)\(s.speaker.map { " · Speaker \($0)" } ?? "")").font(.caption2).foregroundStyle(.secondary)
+                                }
                                 Text(s.fullOriginal).textSelection(.enabled)
                                 if !s.fullTranslation.isEmpty { Text(s.fullTranslation).foregroundStyle(.cyan).textSelection(.enabled) }
                             }.id(s.id)

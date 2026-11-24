@@ -48,6 +48,13 @@ public enum WindowLevelOption: String, Codable, CaseIterable, Sendable { case st
 }
 public enum CaptionAlignment: String, Codable, CaseIterable, Sendable { case leading, center, trailing }
 
+public enum ColorMode: String, Codable, CaseIterable, Sendable {
+    case speaker, source, single
+    public var title: String {
+        switch self { case .speaker: "By speaker"; case .source: "By source (System / Mic)"; case .single: "One colour" }
+    }
+}
+
 public struct AppearanceSettings: Codable, Hashable, Sendable {
     public var original = TextStyle(size: 28)
     public var translation = TextStyle(size: 24)
@@ -62,8 +69,46 @@ public struct AppearanceSettings: Codable, Hashable, Sendable {
     public var padding: Double = 14
     public var shadow = true
     public var outline = false
+    /// Legacy flag (pre-colour-modes); kept so old settings decode. Use `colorMode`.
     public var speakerColors = true
+    public var colorMode: ColorMode = .speaker
+    /// One colour per diarised speaker (cycled).
+    public var speakerPalette: [RGBA] = [
+        RGBA(1, 1, 1), RGBA(1.0, 0.82, 0.4), RGBA(0.55, 0.85, 1.0), RGBA(1.0, 0.6, 0.75), RGBA(0.7, 1.0, 0.6), RGBA(0.8, 0.7, 1.0),
+    ]
     public init() {}
+
+    enum CodingKeys: String, CodingKey {
+        case original, translation, textColor, translationColor, draftColor, themColor, meColor, backgroundColor, useBlur,
+             cornerRadius, padding, shadow, outline, speakerColors, colorMode, speakerPalette
+    }
+
+    /// Tolerant: settings saved by older versions lack newer keys.
+    public init(from d: Decoder) throws {
+        self.init()
+        let c = try d.container(keyedBy: CodingKeys.self)
+        func v<T: Decodable>(_ k: CodingKeys, _ cur: T) throws -> T { try c.decodeIfPresent(T.self, forKey: k) ?? cur }
+        original = try v(.original, original); translation = try v(.translation, translation)
+        textColor = try v(.textColor, textColor); translationColor = try v(.translationColor, translationColor)
+        draftColor = try v(.draftColor, draftColor); themColor = try v(.themColor, themColor); meColor = try v(.meColor, meColor)
+        backgroundColor = try v(.backgroundColor, backgroundColor); useBlur = try v(.useBlur, useBlur)
+        cornerRadius = try v(.cornerRadius, cornerRadius); padding = try v(.padding, padding)
+        shadow = try v(.shadow, shadow); outline = try v(.outline, outline); speakerColors = try v(.speakerColors, speakerColors)
+        speakerPalette = try v(.speakerPalette, speakerPalette)
+        if let m = try c.decodeIfPresent(ColorMode.self, forKey: .colorMode) { colorMode = m } else { colorMode = speakerColors ? .speaker : .single }
+        if speakerPalette.isEmpty { speakerPalette = AppearanceSettings().speakerPalette }
+    }
+
+    /// Colour of a line: by diarised speaker, by source, or one colour. `isMic` = the user's own microphone stream.
+    public func color(isMic: Bool, speaker: String?) -> RGBA {
+        switch colorMode {
+        case .single: return textColor
+        case .source: return isMic ? meColor : themColor
+        case .speaker:
+            guard let speaker, let n = Int(speaker.filter(\.isNumber)), n > 0 else { return isMic ? meColor : themColor }
+            return speakerPalette[(n - 1) % speakerPalette.count]
+        }
+    }
 }
 
 public struct LayoutSettings: Codable, Hashable, Sendable {

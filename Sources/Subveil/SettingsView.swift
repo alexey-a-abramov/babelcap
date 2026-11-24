@@ -191,7 +191,21 @@ private struct AppearanceTab: View {
                 Section("Colors & background") {
                     color("Text", \.textColor); color("Translation", \.translationColor); color("Draft", \.draftColor)
                     color("System text", \.themColor); color("Mic text", \.meColor); color("Background", \.backgroundColor)
-                    Toggle("Color by source", isOn: $settings.profile.appearance.speakerColors)
+                    Picker("Colours", selection: $settings.profile.appearance.colorMode) {
+                        ForEach(ColorMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    if settings.profile.appearance.colorMode == .speaker {
+                        HStack {
+                            Text("Speakers")
+                            ForEach(settings.profile.appearance.speakerPalette.indices, id: \.self) { i in
+                                ColorPicker("", selection: Binding(get: { settings.profile.appearance.speakerPalette[i].color },
+                                                                   set: { settings.profile.appearance.speakerPalette[i] = RGBA($0) }))
+                                    .labelsHidden().help("Speaker \(i + 1)")
+                            }
+                        }
+                        Text("Speakers are told apart by Soniox (diarization). Local engines don't separate speakers — their lines use the System / Mic colours.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Toggle("Blur behind", isOn: $settings.profile.appearance.useBlur)
                     Toggle("Shadow", isOn: $settings.profile.appearance.shadow)
                     Toggle("Outline", isOn: $settings.profile.appearance.outline)
