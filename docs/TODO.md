@@ -1,6 +1,6 @@
 # Subveil — plan and TODO
 
-Updated: 2026-11-23. Legend: `[x]` done and verified · `[~]` written, **not verified on real hardware yet** · `[ ]` not done.
+Updated: 2026-11-24. Legend: `[x]` done and verified · `[~]` written, **not verified on real hardware yet** · `[ ]` not done.
 Each stage can be handed to a separate agent. Stages are ordered from the riskiest to the least risky.
 After finishing a stage: tick the items, update "Deviations from the spec", commit.
 
@@ -112,7 +112,10 @@ Needs a real Soniox key and live audio.
 - [x] Benchmark clips (EN/RU/DE/FR/ES/IT/HE, macOS voices), WER, speed (× real time) / latency, verdict; `subveil-bench` CLI; Benchmark tab
 - [x] "Models & Providers" window (browse / compare / benchmark), per-provider API keys in the Keychain
 - [~] Cloud adapters Gladia, Speechmatics, OpenAI realtime-translate — built from the docs and tested against mock servers; **not yet tried with real keys**
-- [ ] Cloud adapters: Gemini Live, Azure (SDK), ElevenLabs/AssemblyAI/Deepgram (+ a translation step)
+- [~] Cloud adapters Gemini Live Translate (WebSocket, reconnect on `goAway`), ElevenLabs Scribe v3 realtime (+ the local translator),
+  Azure Speech Translation (Microsoft Speech SDK, key stored as `region|key`) — Gemini/ElevenLabs tested on mock servers,
+  Azure only on token mapping; **none tried with real keys yet**
+- [ ] Cloud adapters: Azure Live Interpreter, AssemblyAI, Deepgram (+ a translation step)
 - [x] Onboarding: choose cloud (Soniox key) or offline (Whisper turbo + TranslateGemma download)
 - [x] Local meeting summary (Qwen3 4B / EuroLLM via MLX); spoken translations played in-process
 - [x] Local translation with MLX LLMs (TranslateGemma 4B/12B, Qwen3 4B, EuroLLM 9B) via mlx-swift-lm; translator setting (Auto / Apple / Whisper / model)
@@ -136,6 +139,10 @@ Needs a real Soniox key and live audio.
 7. Translation is attached to segments by its own cursor (it is not aligned 1:1 with the original) — a heuristic, verify on real responses.
 8. Voice processing is disabled while system audio is captured at the same time (it conflicts with the tap); echo is handled by headphones + de-duplication.
 9. Defaults differ from the spec: everything is translated to English out of the box, the Dock icon is shown (setting), "System/Mic" labels are off, the subtitle panel is movable (not click-through) by default.
+10. **Azure** goes through Microsoft's Speech SDK (`speech-sdk-spm`, a binary framework embedded in `Contents/Frameworks`),
+    not a hand-written WebSocket client: the Azure speech-translation WebSocket protocol is not documented.
+    Ad-hoc builds sign the app with `Resources/Subveil-adhoc.entitlements` (adds `disable-library-validation`), because an
+    ad-hoc app has no Team ID and dyld would refuse the Microsoft-signed framework.
 
 ## Open product questions (from the spec)
 
@@ -152,7 +159,7 @@ Needs a real Soniox key and live audio.
 ## Diagnostics and tests
 
 - Trace log: `~/Library/Logs/Subveil/trace.log` (also `log stream --predicate 'subsystem == "app.subveil"'`). It records states, codes, counters and levels — **never the API key or transcript text**. Follow it with `tail -f ~/Library/Logs/Subveil/trace.log`.
-- Automated tests (`swift test`, 27 tests, incl. off-screen HUD layout checks): token assembly; Soniox models; `SonioxSession` against a local mock WebSocket server (Bearer header, config without `api_key`, 401 without reconnect, 429 backoff, reconnect + replay + timestamp offset); the whole engine with a fake capture (start, audio flow, transcript, pause/resume, translation change without losing history, 401, missing key); Keychain (isolated service name); settings defaults and migration.
+- Automated tests (`swift test`, 63 tests, incl. off-screen HUD layout checks): token assembly; Soniox models; `SonioxSession` against a local mock WebSocket server (Bearer header, config without `api_key`, 401 without reconnect, 429 backoff, reconnect + replay + timestamp offset); the whole engine with a fake capture (start, audio flow, transcript, pause/resume, translation change without losing history, 401, missing key); Keychain (isolated service name); settings defaults and migration.
 - [ ] UI / onboarding tests (XCUITest or snapshots); `SystemAudioTap` / `MicCapture` tests on hardware (not possible in CI)
 
 ## Repository / README

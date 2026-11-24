@@ -33,6 +33,8 @@ The product was specified as "Live Captions for macOS" (23 Nov 2026); the workin
 | `AppSettings` | `Profile` and nested settings, `SettingsStore`, `KeychainStore`. *(Not named `Settings` — clashes with SwiftUI.)* |
 | `LocalEngines` | On-device engines behind `SpeechStream`: `AppleSpeechStream` (SpeechAnalyzer, macOS 26), `WhisperKitStream` (+ `WhisperKitPool`: one loaded model, serialised inference), `AppleTranslator` |
 | `LocalLLM` | MLX (mlx-swift-lm 3.33): `MLXRunner` (one loaded LLM, stops at end-of-turn), `MLXTranslator` (TranslateGemma prompt or chat) |
+| `CloudEngines` | WebSocket adapters: Gladia, Speechmatics, OpenAI realtime-translate, Gemini Live Translate, ElevenLabs Scribe (+ local translator) |
+| `AzureEngine` | Azure Speech Translation via Microsoft's Speech SDK (binary framework) |
 | `ModelHub` | `ModelCatalog` (all cloud + local engines, prices, URLs, sizes, RAM), `ModelDownloads` (resumable HTTP Range, SHA-256), `ModelStorage` (`~/Library/Application Support/Subveil/Models/<id>`), `EngineFactory`, `BenchmarkRunner` + clips + WER |
 | `CatalogUI` | "Models & Providers" window: browse / compare / benchmark |
 | `SubveilBench` (exec) | `subveil-bench` CLI: list, download, test engines |
@@ -48,7 +50,7 @@ Differences from the spec: `CaptionsCore` was added so Overlay and HUD do not de
 
 ```bash
 swift build                       # debug build
-swift test                        # 24 tests: token assembly, Soniox models, mock WebSocket server, engine end-to-end, Keychain, settings
+swift test                        # 63 tests: token assembly, Soniox models, mock WebSocket server, engine end-to-end, Keychain, settings
 scripts/build_app.sh              # release → build/Subveil.app (signed, hardened runtime)
 scripts/install_app.sh            # build + sign + install to ~/Applications/Subveil.app + launch
 scripts/install_app.sh "<identity>"   # use a specific signing identity (e.g. Developer ID)
@@ -92,3 +94,6 @@ An ad-hoc signature changes with every build and makes macOS ask again.
   codesign rejects non-code there). Apple Translation works only inside the app bundle, not from the CLI.
 - TranslateGemma does not declare `<end_of_turn>` as EOS: generation is stopped by token id in `MLXRunner`.
 - Soniox keys look like `snx_proj_…` (long, with `.`, `_`, `-`); a wrong key gives `401 Incorrect API key provided`.
+- Azure Speech SDK is a binary framework: `build_app.sh` copies it to `Contents/Frameworks`, adds the `@executable_path/../Frameworks`
+  rpath and re-signs it. Ad-hoc builds need `Resources/Subveil-adhoc.entitlements` (`disable-library-validation`), otherwise
+  dyld fails with "different Team IDs". The Azure credential is stored as `region|key` in the provider's Keychain item.
