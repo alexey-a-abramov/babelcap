@@ -19,6 +19,9 @@ public enum EngineID: Hashable, Sendable {
     case gladia
     case speechmatics
     case openAITranslate
+    case geminiTranslate
+    case elevenLabs
+    case azureTranslate
     case appleSpeech
     case whisperKit(folder: String, translates: Bool)
     /// A local MLX language model used as the text translator for on-device engines.
@@ -215,11 +218,12 @@ public enum ModelCatalog {
             docsURL: "https://platform.openai.com/docs/guides/realtime", license: "Proprietary", engine: .openAITranslate),
         CatalogEntry(
             id: "gemini-live", name: "Google Gemini Live Translate", vendor: "Google", kind: .cloud,
-            summary: "Live speech translation through the Gemini Live API (preview).",
-            outputs: "Translated speech / text", languages: "Many", translation: "Yes", realtime: "Yes (preview)",
+            summary: "Google's live speech-translation model: source transcript and translation as you listen (preview).",
+            outputs: "Source transcript + translation (translated speech is ignored)", languages: "~70 target languages", translation: "One-way into one target language", realtime: "Yes (preview)",
             runtime: "WebSocket (Live API)", pricePerHour: 2.21, priceText: "≈ $2.21/h (third-party estimate)",
             keyURL: "https://aistudio.google.com/apikey", pricingURL: "https://ai.google.dev/gemini-api/docs/pricing",
-            docsURL: "https://ai.google.dev/gemini-api/docs/live", license: "Proprietary"),
+            docsURL: "https://ai.google.dev/gemini-api/docs/live", license: "Proprietary", engine: .geminiTranslate,
+            notes: ["Model: gemini-3.5-live-translate-preview (preview). Sessions are renewed automatically every ~10–15 minutes.", "Free tier available in Google AI Studio."]),
         CatalogEntry(
             id: "azure-translate", name: "Azure Speech Translation", vendor: "Microsoft", kind: .cloud,
             summary: "Transcript + translated text (optionally speech) through the Azure Speech SDK.",
@@ -227,7 +231,8 @@ public enum ModelCatalog {
             runtime: "Speech SDK", pricePerHour: 2.5, priceText: "$2.50/h",
             keyURL: "https://portal.azure.com/#create/Microsoft.CognitiveServicesSpeechServices",
             pricingURL: "https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/",
-            docsURL: "https://learn.microsoft.com/azure/ai-services/speech-service/speech-translation", license: "Proprietary"),
+            docsURL: "https://learn.microsoft.com/azure/ai-services/speech-service/speech-translation", license: "Proprietary", engine: .azureTranslate,
+            notes: ["Uses Microsoft's Speech SDK. Enter the key together with your resource region (e.g. westeurope)."]),
         CatalogEntry(
             id: "azure-interpreter", name: "Azure Live Interpreter", vendor: "Microsoft", kind: .cloud,
             summary: "Speech-to-speech interpretation with text.", outputs: "Translated speech + text", languages: "Many",
@@ -238,10 +243,11 @@ public enum ModelCatalog {
             docsURL: "https://learn.microsoft.com/azure/ai-services/speech-service/speech-translation", license: "Proprietary"),
         CatalogEntry(
             id: "elevenlabs-scribe", name: "ElevenLabs Scribe v3 Live", vendor: "ElevenLabs", kind: .cloud,
-            summary: "Low-latency live transcription (no translation — would need a separate translation step).",
-            outputs: "Transcript", languages: "90+", translation: "No", realtime: "Yes", runtime: "WebSocket",
+            summary: "Low-latency live transcription in the cloud; Subveil translates each line on this Mac.",
+            outputs: "Transcript (+ translation by your local translator)", languages: "90+", translation: "Via TranslateGemma / Apple on this Mac", realtime: "Yes", runtime: "WebSocket",
             pricePerHour: 0.22, priceText: "$0.22/h", keyURL: "https://elevenlabs.io/app/settings/api-keys",
-            pricingURL: "https://elevenlabs.io/pricing/api", docsURL: "https://elevenlabs.io/docs", license: "Proprietary"),
+            pricingURL: "https://elevenlabs.io/pricing/api", docsURL: "https://elevenlabs.io/docs", license: "Proprietary", engine: .elevenLabs,
+            notes: ["Scribe only transcribes: translation is done on this Mac by the translator you pick (TranslateGemma or Apple Translation)."]),
         CatalogEntry(
             id: "assemblyai", name: "AssemblyAI Streaming", vendor: "AssemblyAI", kind: .cloud,
             summary: "Streaming transcription (no translation).", outputs: "Transcript", languages: "English + others",

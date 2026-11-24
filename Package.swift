@@ -12,6 +12,7 @@ let package = Package(
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", exact: "1.1.1"),
         .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", exact: "3.33.0"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", exact: "1.4.0"),
+        .package(url: "https://github.com/microsoft/speech-sdk-spm.git", exact: "1.53.1"),
     ],
     targets: [
         .target(name: "AudioCapture"),
@@ -26,8 +27,12 @@ let package = Package(
             .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
             .product(name: "Tokenizers", package: "swift-transformers"),
         ]),
-        .target(name: "CloudEngines", dependencies: ["SonioxClient"]),
-        .target(name: "ModelHub", dependencies: ["SonioxClient", "LocalEngines", "LocalLLM", "CloudEngines"]),
+        .target(name: "CloudEngines", dependencies: ["SonioxClient", "LocalEngines"]),
+        .target(name: "AzureEngine", dependencies: [
+            "SonioxClient",
+            .product(name: "MicrosoftCognitiveServicesSpeech-macOS", package: "speech-sdk-spm"),
+        ]),
+        .target(name: "ModelHub", dependencies: ["SonioxClient", "LocalEngines", "LocalLLM", "CloudEngines", "AzureEngine"]),
         .target(name: "CaptionsCore", dependencies: ["AudioCapture", "SonioxClient", "Transcript", "AppSettings", "ModelHub", "LocalEngines"]),
         .target(name: "SharedUI"),
         .target(name: "Overlay", dependencies: ["Transcript", "AppSettings", "SonioxClient", "SharedUI"]),
@@ -41,7 +46,7 @@ let package = Package(
         .testTarget(name: "TranscriptTests", dependencies: ["Transcript", "SonioxClient"]),
         .testTarget(
             name: "SonioxClientTests",
-            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript", "ControlHUD", "Overlay", "SharedUI", "ModelHub", "LocalEngines", "CatalogUI", "CloudEngines"]
+            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript", "ControlHUD", "Overlay", "SharedUI", "ModelHub", "LocalEngines", "CatalogUI", "CloudEngines", "AzureEngine"]
         ),
     ]
 )

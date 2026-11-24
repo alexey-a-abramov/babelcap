@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 @testable import CloudEngines
+@testable import LocalEngines
 @testable import SonioxClient
 @testable import Transcript
 
@@ -198,5 +199,110 @@ final class GladiaAdapterTests: XCTestCase {
         let failed = await waitUntil(3) { got.states.contains(.failed) }
         XCTAssertTrue(failed)
         XCTAssertTrue(got.errors.contains { $0.code == 401 && $0.isFatal })
+    }
+}
+
+final class ElevenLabsAdapterTests: XCTestCase {
+    struct UpperTranslator: TextTranslator {
+        var name: String { "test" }
+        func translate(_ text: String, from source: String?, to target: String) async throws -> String { "[\(target)] " + text.uppercased() }
+        func problem(from source: String?, to target: String) async -> String? { nil }
+    }
+
+    func testScribeLinesAreTranslatedLocally() async throws {
+        Trace.fileEnabled = false
+        let server = MockSonioxServer()
+        try server.start()
+        defer { server.stop() }
+        server.onConnection = { conn in
+            conn.onText = { c, text in
+                guard text.contains("input_audio_chunk"), (c.texts.count == 1) else { return }
+                c.sendText(#"{"message_type":"session_started","session_id":"s1","config":{}}"#)
+                c.sendText(#"{"message_type":"partial_transcript","text":"buenos","language_code":"es"}"#)
+                c.sendText(#"{"message_type":"committed_transcript","text":"buenos días"}"#)
+            }
+        }
+        var cfg = SonioxConfig(); cfg.translation = .oneWay(target: "en")
+        var u = URLComponents(url: server.url, resolvingAgainstBaseURL: false)!
+        u.queryItems = ElevenLabsStream.url(cfg).query.map { _ in URLComponents(url: ElevenLabsStream.url(cfg), resolvingAgainstBaseURL: false)!.queryItems! }
+        let stream = ElevenLabsStream(apiKey: "xi-key", config: cfg, translator: UpperTranslator(), url: u.url!)
+        let got = collect(stream)
+        await stream.start()
+        await stream.send(Data(count: 3200))
+        let done = await waitUntil(5) { got.segments.first?.translation == "[en] BUENOS DÍAS" }
+        XCTAssertTrue(done, "segments: \(got.segments)")
+        XCTAssertEqual(got.segments.first?.original, "buenos días")
+        XCTAssertEqual(got.segments.first?.language, "es", "language from partial_transcript")
+        await stream.stop()
+        XCTAssertEqual(server.authHeaders.first, "", "auth is the xi-api-key header, not Authorization")
+        let chunk = try XCTUnwrap(server.connections.first?.texts.first.flatMap { JSON.object(Data($0.utf8)) })
+        XCTAssertEqual(chunk["message_type"] as? String, "input_audio_chunk")
+        XCTAssertEqual(chunk["sample_rate"] as? Int, 16000)
+        XCTAssertEqual(chunk["commit"] as? Bool, false)
+        let q = URLComponents(url: ElevenLabsStream.url(cfg), resolvingAgainstBaseURL: false)!.queryItems ?? []
+        XCTAssertTrue(q.contains(URLQueryItem(name: "model_id", value: "scribe_v3_live")))
+        XCTAssertTrue(q.contains(URLQueryItem(name: "audio_format", value: "pcm_16000")))
+    }
+}
+
+final class GeminiAdapterTests: XCTestCase {
+    func testSetupAudioAndTranscripts() async throws {
+        Trace.fileEnabled = false
+        let server = MockSonioxServer()
+        try server.start()
+        defer { server.stop() }
+        server.onConnection = { conn in
+            conn.onText = { c, text in
+                if text.contains("\"setup\"") {
+                    c.sendText(#"{"setupComplete":{}}"#)
+                    c.sendText(#"{"serverContent":{"inputTranscription":{"text":"Hola, ","languageCode":"es"}}}"#)
+                    c.sendText(#"{"serverContent":{"inputTranscription":{"text":"amigos."}}}"#)
+                    c.sendText(#"{"serverContent":{"outputTranscription":{"text":"Hello, friends."}}}"#)
+                    c.sendText(#"{"serverContent":{"turnComplete":true}}"#)
+                }
+            }
+        }
+        var cfg = SonioxConfig(); cfg.languageHints = ["es"]; cfg.translation = .oneWay(target: "en")
+        let stream = GeminiTranslateStream(apiKey: "AIza-test", config: cfg, base: server.url)
+        let got = collect(stream)
+        await stream.start()
+        await stream.send(Data(count: 3200))
+        let done = await waitUntil(5) { got.segments.first?.translation == "Hello, friends." }
+        XCTAssertTrue(done, "segments: \(got.segments)")
+        XCTAssertEqual(got.segments.first?.original, "Hola, amigos.")
+        XCTAssertTrue(got.states.contains(.live))
+        await stream.stop()
+
+        let texts = server.connections.first?.texts ?? []
+        let setup = try XCTUnwrap(texts.first.flatMap { JSON.object(Data($0.utf8)) }?["setup"] as? [String: Any])
+        XCTAssertEqual(setup["model"] as? String, "models/gemini-3.5-live-translate-preview")
+        let gen = try XCTUnwrap(setup["generationConfig"] as? [String: Any])
+        XCTAssertEqual((gen["translationConfig"] as? [String: Any])?["targetLanguageCode"] as? String, "en")
+        let audio = try XCTUnwrap(texts.compactMap { JSON.object(Data($0.utf8)) }.first { $0["realtimeInput"] != nil })
+        let a = try XCTUnwrap((audio["realtimeInput"] as? [String: Any])?["audio"] as? [String: Any])
+        XCTAssertEqual(a["mimeType"] as? String, "audio/pcm;rate=16000")
+        XCTAssertEqual(Data(base64Encoded: a["data"] as? String ?? "")?.count, 3200)
+    }
+
+    func testReconnectsWhenTheServerEndsTheSession() async throws {
+        Trace.fileEnabled = false
+        let server = MockSonioxServer()
+        try server.start()
+        defer { server.stop() }
+        server.onConnection = { conn in
+            conn.onText = { c, text in
+                guard text.contains("\"setup\"") else { return }
+                c.sendText(#"{"setupComplete":{}}"#)
+                if c.index == 0 { c.sendText(#"{"goAway":{"timeLeft":"1s"}}"#) }
+            }
+        }
+        var cfg = SonioxConfig(); cfg.translation = .oneWay(target: "en")
+        let stream = GeminiTranslateStream(apiKey: "k", config: cfg, base: server.url)
+        let got = collect(stream)
+        await stream.start()
+        let renewed = await waitUntil(5) { server.connections.count >= 2 }
+        XCTAssertTrue(renewed, "a new session is opened after goAway")
+        XCTAssertTrue(got.states.contains(.reconnecting))
+        await stream.stop()
     }
 }

@@ -49,7 +49,8 @@ final class CatalogTests: XCTestCase {
     func testProblemsExplainWhatIsMissing() {
         XCTAssertNotNil(EngineFactory.problem(for: ModelCatalog.entry("soniox")!, apiKey: nil), "no key")
         XCTAssertNil(EngineFactory.problem(for: ModelCatalog.entry("soniox")!, apiKey: "k"))
-        XCTAssertNotNil(EngineFactory.problem(for: ModelCatalog.entry("azure-translate")!, apiKey: "k"), "planned adapter")
+        XCTAssertNotNil(EngineFactory.problem(for: ModelCatalog.entry("deepgram")!, apiKey: "k"), "planned adapter")
+        XCTAssertNil(EngineFactory.problem(for: ModelCatalog.entry("azure-translate")!, apiKey: "westeurope|k"), "Azure adapter is built")
         XCTAssertNil(EngineFactory.problem(for: ModelCatalog.entry("gladia")!, apiKey: "k"), "Gladia adapter is built")
     }
 }

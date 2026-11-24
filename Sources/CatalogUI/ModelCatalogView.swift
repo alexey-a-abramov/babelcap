@@ -158,6 +158,7 @@ private struct EntryDetail: View {
     @State private var verifying = false
     @State private var confirmLicence = false
     @State private var translationPack: String?
+    @State private var azureRegion = "westeurope"
 
     var body: some View {
         ScrollView {
@@ -307,6 +308,13 @@ private struct EntryDetail: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("How to get one: 1) create an account, 2) create an API key in the console, 3) paste it here. You pay \(entry.vendor) directly for what you use; top up or set a budget on their billing page.")
                     .fixedSize(horizontal: false, vertical: true).foregroundStyle(.secondary)
+                if entry.engine == .azureTranslate {
+                    HStack {
+                        Text("Region")
+                        TextField("e.g. westeurope", text: $azureRegion).textFieldStyle(.roundedBorder).frame(maxWidth: 200)
+                        Text("The region of your Speech resource (Azure portal → Keys and Endpoint).").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 HStack {
                     SecureField(hasKey ? "•••••••• saved in the Keychain" : "Paste the \(entry.vendor) API key", text: $key)
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 420)
@@ -350,7 +358,8 @@ private struct EntryDetail: View {
                 }
             }
         } else {
-            keychain.save(k); key = ""; hasKey = true; keyStatus = "✓ Saved in the Keychain"
+            let value = entry.engine == .azureTranslate ? "\(azureRegion.trimmingCharacters(in: .whitespaces))|\(k)" : k
+            keychain.save(value); key = ""; hasKey = true; keyStatus = "✓ Saved in the Keychain"
         }
     }
 
