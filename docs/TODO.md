@@ -70,11 +70,11 @@ Needs a real Soniox key and live audio.
 - [~] Profiles with context (terms, domain, translation glossary), JSON import/export (FR-15), presets
 - [~] Subtitle panel: movable and resizable by default, hover toolbar, click-through option, shown only while a session runs
 - [~] Dock icon (setting), Dock menu, app icon
-- [~] Global hotkeys via `RegisterEventHotKey` (FR-16) — **fixed** (⌥⌘Space/P/H/C/L/S/T/K)
-- [ ] Configurable hotkeys (sindresorhus/KeyboardShortcuts) — not wired
+- [x] Global hotkeys via `RegisterEventHotKey` (FR-16), configurable in Settings → Shortcuts (own recorder, no library), re-registered live
 - [ ] Per-speaker colours (currently by source System/Mic only), language tag polish (FR-14)
 - [ ] Token-level fade-in (currently segment-level animation)
-- [ ] Display choice, remembering HUD/overlay position *per display*, "follow active screen" (FR-21)
+- [x] Subtitle panel positions remembered per monitor setup; panels/HUD return on-screen when a display is unplugged
+- [ ] "Follow the active screen" (FR-21)
 - [ ] Honour Reduce Motion / Reduce Transparency in SwiftUI animations (HUD resizing already honours Reduce Motion)
 - [ ] Hotkey to expand/collapse the HUD; snapping to edges/corners
 - [ ] Verify the Settings window from an accessory-policy app (`showSettingsWindow:` + `NSApp.activate`)
@@ -163,6 +163,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-24 — Configurable global shortcuts; positions per monitor setup.
 
 - 2026-11-24 — Gladia, Speechmatics and OpenAI realtime-translate adapters (mock-tested); onboarding engine choice; local meeting summary; spoken translations.
 

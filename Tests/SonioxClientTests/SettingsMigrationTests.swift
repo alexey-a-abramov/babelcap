@@ -100,3 +100,18 @@ final class SpeakerColorTests: XCTestCase {
         XCTAssertFalse(a.speakerPalette.isEmpty)
     }
 }
+
+@MainActor
+final class HotKeyBindingTests: XCTestCase {
+    func testDefaultsDisplayAndOverrides() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hk-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let s = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        XCTAssertEqual(s.binding(.startStop).display, "⌥⌘Space")
+        XCTAssertFalse(HotKeyBinding(keyCode: 0, modifiers: 0x200, key: "A").isUsable, "Shift alone would steal typing")
+        s.hotkeys[HotKeyAction.clear.rawValue] = HotKeyBinding(keyCode: 40, modifiers: 0x1000 | 0x100, key: "K")
+        XCTAssertEqual(s.binding(.clear).display, "⌃⌘K")
+        XCTAssertEqual(Set(HotKeyAction.allCases.map { $0.defaultBinding }).count, HotKeyAction.allCases.count, "defaults don't collide")
+    }
+}

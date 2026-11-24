@@ -23,7 +23,7 @@ struct SettingsView: View {
             LayoutTab(settings: settings).tabItem { Label("Layout", systemImage: "rectangle.on.rectangle") }
             SessionTab(settings: settings).tabItem { Label("Session", systemImage: "clock") }
             ProfilesTab(settings: settings).tabItem { Label("Profiles", systemImage: "person.2") }
-            ShortcutsTab().tabItem { Label("Shortcuts", systemImage: "command") }
+            ShortcutsTab(settings: settings).tabItem { Label("Shortcuts", systemImage: "command") }
         }
         .frame(width: 640, height: 640)
         // Changes reach a running session through AppContext's settings watcher.
@@ -352,14 +352,70 @@ private struct ProfilesTab: View {
 }
 
 private struct ShortcutsTab: View {
+    @Bindable var settings: SettingsStore
+    @State private var recording: HotKeyAction?
+    @State private var monitor: Any?
+
     var body: some View {
         Form {
             Section("Global shortcuts") {
-                ForEach(HotKeys.descriptions, id: \.0) { k, d in
-                    HStack { Text(d); Spacer(); Text(k).monospaced().foregroundStyle(.secondary) }
+                ForEach(HotKeyAction.allCases, id: \.self) { a in
+                    HStack {
+                        Text(a.title)
+                        Spacer()
+                        if duplicates.contains(settings.binding(a)) {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).help("Used by another action")
+                        }
+                        Button(recording == a ? "Press keys… (Esc to cancel)" : settings.binding(a).display) {
+                            recording == a ? stopRecording() : record(a)
+                        }
+                        .monospaced()
+                        .frame(minWidth: 190)
+                        if settings.hotkeys[a.rawValue] != nil {
+                            Button { settings.hotkeys[a.rawValue] = nil } label: { Image(systemName: "arrow.uturn.backward") }
+                                .buttonStyle(.borderless).help("Back to \(a.defaultBinding.display)")
+                        }
+                    }
                 }
             }
-            Text("Registered with RegisterEventHotKey — no Accessibility permission needed.").font(.caption).foregroundStyle(.secondary)
-        }.formStyle(.grouped)
+            Section {
+                Button("Reset all to defaults") { settings.hotkeys = [:] }
+                Text("Click a shortcut and press the new combination — it needs ⌘, ⌥ or ⌃. Works everywhere, no Accessibility permission needed.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onDisappear { stopRecording() }
+    }
+
+    private var duplicates: Set<HotKeyBinding> {
+        var seen = Set<HotKeyBinding>(), dup = Set<HotKeyBinding>()
+        for a in HotKeyAction.allCases { let b = settings.binding(a); if !seen.insert(b).inserted { dup.insert(b) } }
+        return dup
+    }
+
+    private func record(_ a: HotKeyAction) {
+        stopRecording()
+        recording = a
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+            if e.keyCode == 53 { stopRecording(); return nil }   // Esc
+            var mods = 0
+            if e.modifierFlags.contains(.command) { mods |= 0x100 }
+            if e.modifierFlags.contains(.shift) { mods |= 0x200 }
+            if e.modifierFlags.contains(.option) { mods |= 0x800 }
+            if e.modifierFlags.contains(.control) { mods |= 0x1000 }
+            let key = e.keyCode == 49 ? "Space" : (e.charactersIgnoringModifiers ?? "").uppercased()
+            let b = HotKeyBinding(keyCode: Int(e.keyCode), modifiers: mods, key: key.isEmpty ? "#\(e.keyCode)" : key)
+            guard b.isUsable else { NSSound.beep(); return nil }
+            settings.hotkeys[a.rawValue] = b
+            stopRecording()
+            return nil
+        }
+    }
+
+    private func stopRecording() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        recording = nil
     }
 }

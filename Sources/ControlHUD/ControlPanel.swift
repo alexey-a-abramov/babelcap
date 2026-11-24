@@ -60,8 +60,18 @@ public final class ControlPanelController {
         }
         panel.setFrameAutosaveName("SubveilHUD")
         applySize(animated: false)
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.keepOnScreen() }
+        }
+        keepOnScreen()
         track()
         idleLoop()
+    }
+
+    /// After a monitor is unplugged the panel could sit off-screen: bring it back to the top of the main screen.
+    private func keepOnScreen() {
+        guard !NSScreen.screens.contains(where: { $0.visibleFrame.intersects(panel.frame) }), let vis = NSScreen.main?.visibleFrame else { return }
+        panel.setFrameTopLeftPoint(NSPoint(x: vis.midX - panel.frame.width / 2, y: vis.maxY - 40))
     }
 
     public func show() { panel.orderFrontRegardless() }

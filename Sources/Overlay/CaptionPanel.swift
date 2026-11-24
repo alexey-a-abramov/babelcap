@@ -88,6 +88,10 @@ public final class OverlayController {
 
     public func start() {
         appliedWidth = settings.profile.layout.width
+        screenObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                                                object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.screensChanged() }
+        }
         rebuild()
         track()
         watchCommandKey()
@@ -150,20 +154,45 @@ public final class OverlayController {
 
     private static func name(_ key: String) -> String { "SubveilCaption.\(key)" }
     private var observers: [String: [NSObjectProtocol]] = [:]
+    private var screenObserver: NSObjectProtocol?
+
+    /// Monitor plugged in / out: go to the place remembered for this setup, or back onto a visible screen.
+    private func screensChanged() {
+        for (key, p) in panels {
+            if let saved = UserDefaults.standard.string(forKey: Self.screenKey(key)).map(NSRectFromString), saved.width > 0 {
+                p.setFrame(saved, display: true)
+            } else if !NSScreen.screens.contains(where: { $0.visibleFrame.intersects(p.frame) }), let vis = NSScreen.main?.visibleFrame {
+                var f = p.frame
+                f.size.width = min(f.width, vis.width - 40)
+                f.origin = NSPoint(x: vis.midX - f.width / 2, y: vis.minY + 70)
+                p.setFrame(f, display: true)
+            }
+        }
+    }
 
     // Own frame storage: the system frame autosave does not restore the size of panels that are not resizable
     // at creation time (and click-through panels are not resizable).
     static func defaultsKey(_ key: String) -> String { "SubveilCaption.\(key).frame" }
 
+    /// Positions are remembered per monitor setup: laptop alone vs. laptop + HDMI display keep their own places.
+    static var screenSignature: String {
+        NSScreen.screens.map { s in "\(Int(s.frame.minX)),\(Int(s.frame.minY)),\(Int(s.frame.width))x\(Int(s.frame.height))" }
+            .sorted().joined(separator: "|")
+    }
+    static func screenKey(_ key: String) -> String { defaultsKey(key) + "." + screenSignature }
+
     static func saveFrame(_ r: NSRect, key: String) {
         guard r.width > 0, r.height > 0 else { return }
-        UserDefaults.standard.set(NSStringFromRect(r), forKey: defaultsKey(key))
+        UserDefaults.standard.set(NSStringFromRect(r), forKey: screenKey(key))
+        UserDefaults.standard.set(NSStringFromRect(r), forKey: defaultsKey(key))   // fallback for an unknown setup
     }
 
     /// The saved frame, if it is still (at least partly) on a connected screen.
     static func savedFrame(_ key: String) -> NSRect? {
         var r = NSRect.zero
-        if let s = UserDefaults.standard.string(forKey: defaultsKey(key)) {
+        if let s = UserDefaults.standard.string(forKey: screenKey(key)) {
+            r = NSRectFromString(s)
+        } else if let s = UserDefaults.standard.string(forKey: defaultsKey(key)) {
             r = NSRectFromString(s)
         } else if let legacy = UserDefaults.standard.string(forKey: "NSWindow Frame \(name(key))") {
             // Frame saved by the earlier system autosave ("x y w h …"): keep the user's position after the update.

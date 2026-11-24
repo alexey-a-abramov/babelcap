@@ -1,12 +1,14 @@
 import AppKit
+import AppSettings
 import Carbon.HIToolbox
 
-/// Global hotkeys through RegisterEventHotKey (no Accessibility permission, no event tap).
+/// Global hotkeys through RegisterEventHotKey (no Accessibility permission, no event tap). Bindings come from settings
+/// and are re-registered whenever they change.
 @MainActor
 final class HotKeys {
     static let shared = HotKeys()
     nonisolated(unsafe) fileprivate static var actions: [UInt32: @MainActor () -> Void] = [:]
-    private var refs: [EventHotKeyRef?] = []
+    private var refs: [EventHotKeyRef] = []
     private var installed = false
     private var nextID: UInt32 = 1
 
@@ -24,30 +26,38 @@ final class HotKeys {
         }, 1, &spec, nil, nil)
     }
 
-    func register(keyCode: Int, modifiers: Int = optionKey | cmdKey, action: @escaping @MainActor () -> Void) {
+    private func register(_ b: HotKeyBinding, action: @escaping @MainActor () -> Void) {
         install()
         let id = nextID; nextID += 1
         Self.actions[id] = action
         var ref: EventHotKeyRef?
-        RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), EventHotKeyID(signature: OSType(0x5342564C), id: id),
-                            GetApplicationEventTarget(), 0, &ref)
-        refs.append(ref)
+        let st = RegisterEventHotKey(UInt32(b.keyCode), UInt32(b.modifiers), EventHotKeyID(signature: OSType(0x5342564C), id: id),
+                                     GetApplicationEventTarget(), 0, &ref)
+        if st == noErr, let ref { refs.append(ref) }
     }
 
-    func registerDefaults(_ ctx: AppContext) {
-        register(keyCode: kVK_Space) { Task { await ctx.engine.toggleStartStop() } }
-        register(keyCode: kVK_ANSI_P) { Task { await ctx.engine.togglePause() } }
-        register(keyCode: kVK_ANSI_H) { ctx.hud.toggleVisible() }
-        register(keyCode: kVK_ANSI_C) { ctx.overlay.toggleVisible() }
-        register(keyCode: kVK_ANSI_L) { ctx.toggleEditing() }
-        register(keyCode: kVK_ANSI_S) { ctx.cycleSource() }
-        register(keyCode: kVK_ANSI_T) { ctx.toggleTranslation() }
-        register(keyCode: kVK_ANSI_K) { ctx.store.clear() }
+    /// (Re)registers every shortcut from settings.
+    func apply(_ ctx: AppContext) {
+        refs.forEach { UnregisterEventHotKey($0) }
+        refs.removeAll()
+        Self.actions.removeAll()
+        for a in HotKeyAction.allCases {
+            let b = ctx.settings.binding(a)
+            guard b.isUsable else { continue }
+            register(b) { Self.perform(a, ctx) }
+        }
     }
 
-    static let descriptions: [(String, String)] = [
-        ("⌥⌘Space", "Start / Stop"), ("⌥⌘P", "Pause / Resume"), ("⌥⌘H", "Show / hide control panel"),
-        ("⌥⌘C", "Show / hide subtitles"), ("⌥⌘L", "Move/resize vs click-through"), ("⌥⌘S", "Cycle source"),
-        ("⌥⌘T", "Translation on / off"), ("⌥⌘K", "Clear history"),
-    ]
+    static func perform(_ a: HotKeyAction, _ ctx: AppContext) {
+        switch a {
+        case .startStop: Task { await ctx.engine.toggleStartStop() }
+        case .pause: Task { await ctx.engine.togglePause() }
+        case .toggleHUD: ctx.hud.toggleVisible()
+        case .toggleSubtitles: ctx.overlay.toggleVisible()
+        case .clickThrough: ctx.toggleEditing()
+        case .cycleSource: ctx.cycleSource()
+        case .translation: ctx.toggleTranslation()
+        case .clear: ctx.store.clear()
+        }
+    }
 }

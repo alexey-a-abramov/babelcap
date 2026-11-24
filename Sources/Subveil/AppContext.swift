@@ -49,7 +49,8 @@ final class AppContext {
         trackDock()
         trackEngine()
         trackSettingsForEngine()
-        HotKeys.shared.registerDefaults(self)
+        HotKeys.shared.apply(self)
+        trackHotkeys()
         if CommandLine.arguments.contains("--selftest-translate") { selfTestTranslate(); return }
         if CommandLine.arguments.contains("--open-models") { openModelCatalog() }
         else if !settings.onboardingDone || (engine.provider.needsAPIKey && !settings.hasAPIKey) { showOnboarding() }
@@ -132,6 +133,16 @@ final class AppContext {
         }
         if source != .mic { apply(&settings.profile.translationSystem) }
         if source != .system { apply(&settings.profile.translationMic) }
+    }
+
+    private func trackHotkeys() {
+        withObservationTracking { _ = settings.hotkeys } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                HotKeys.shared.apply(self)
+                self.trackHotkeys()
+            }
+        }
     }
 
     // MARK: Dock icon (menu bar item is always there)
