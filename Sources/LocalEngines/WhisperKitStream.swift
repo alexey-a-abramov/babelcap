@@ -1,3 +1,4 @@
+import CoreML
 import Foundation
 import SonioxClient
 @preconcurrency import WhisperKit
@@ -21,6 +22,8 @@ actor AsyncLock {
 /// inference one call at a time — in Both mode the System and Mic streams share the model.
 public actor WhisperKitPool {
     private let gate = AsyncLock()
+    /// GPU by default: the Neural Engine needs a one-time compile per model that can take minutes on first load.
+    nonisolated(unsafe) public static var useNeuralEngine = ProcessInfo.processInfo.environment["SUBVEIL_WHISPER_ANE"] != nil
 
     /// Serialised inference on the shared model.
     public func transcribe(_ pipe: WhisperKit, audio: [Float], options: DecodingOptions) async throws -> [TranscriptionResult] {
@@ -51,7 +54,10 @@ public actor WhisperKitPool {
         let path = modelFolder.path
         let task = Task<WhisperKit, Error> {
             let started = Date()
-            let config = WhisperKitConfig(modelFolder: path, verbose: false, logLevel: .none, prewarm: false, load: true, download: false)
+            let units: MLComputeUnits = WhisperKitPool.useNeuralEngine ? .cpuAndNeuralEngine : .cpuAndGPU
+            let compute = ModelComputeOptions(melCompute: .cpuAndGPU, audioEncoderCompute: units, textDecoderCompute: units)
+            let config = WhisperKitConfig(modelFolder: path, computeOptions: compute, verbose: false, logLevel: .none,
+                                          prewarm: false, load: true, download: false)
             let pipe = try await WhisperKit(config)
             Trace.log("whisperkit", "loaded \(modelFolder.lastPathComponent) in \(String(format: "%.1f", Date().timeIntervalSince(started))) s")
             return pipe
@@ -79,6 +85,9 @@ public actor WhisperKitStream: SpeechStream {
     private let continuation: AsyncStream<SonioxEvent>.Continuation
     private let config: SonioxConfig
     private let modelFolder: URL
+    /// turbo / distil models were not trained for Whisper's translate task — use Apple Translation instead.
+    private let whisperTranslates: Bool
+    private var lastDraftAt = Date.distantPast
 
     static let rate = 16_000
     private let silenceThreshold: Float = 0.012
@@ -98,9 +107,10 @@ public actor WhisperKitStream: SpeechStream {
     private var started = false
     private var translationWarned = false
 
-    public init(modelFolder: URL, config: SonioxConfig) {
+    public init(modelFolder: URL, config: SonioxConfig, whisperTranslates: Bool = true) {
         self.modelFolder = modelFolder
         self.config = config
+        self.whisperTranslates = whisperTranslates
         var c: AsyncStream<SonioxEvent>.Continuation!
         events = AsyncStream(bufferingPolicy: .unbounded) { c = $0 }
         continuation = c
@@ -143,9 +153,11 @@ public actor WhisperKitStream: SpeechStream {
             commitUtterance()
             return
         }
+        // Drafts at most once per second of *wall* time: they are a preview; committed text must keep up first.
         sinceDraft += floats.count
-        if sinceDraft >= draftEvery, !draftBusy, !processing {
+        if sinceDraft >= draftEvery, !draftBusy, !processing, Date().timeIntervalSince(lastDraftAt) >= 1 {
             sinceDraft = 0
+            lastDraftAt = Date()
             await draft()
         }
     }
@@ -225,11 +237,13 @@ public actor WhisperKitStream: SpeechStream {
 
             guard let target = config.translationTarget(forSource: lang), !sameLanguage(target, lang) else { return }
             var translated: String?
-            if sameLanguage(target, "en") {
-                // Whisper translates into English natively.
+            if sameLanguage(target, "en"), whisperTranslates {
+                // Whisper translates into English natively (not the turbo / distil variants).
                 let t = try await WhisperKitPool.shared.transcribe(pipe, audio: audio, options: options(.translate, language: lang))
-                translated = Self.clean(t.map(\.text).joined(separator: " "))
-            } else if #available(macOS 26.0, *), let src = lang {
+                let out = Self.clean(t.map(\.text).joined(separator: " "))
+                if !out.isEmpty, out != text, !Self.hasNonLatinLetters(out) { translated = out }
+            }
+            if translated == nil, #available(macOS 26.0, *), let src = lang {
                 do { translated = try await AppleTranslator.shared.translate(text, from: src, to: target) } catch {
                     if !translationWarned {
                         translationWarned = true
@@ -243,6 +257,10 @@ public actor WhisperKitStream: SpeechStream {
         } catch {
             Trace.log("whisperkit", "transcribe failed: \(error.localizedDescription)")
         }
+    }
+
+    static func hasNonLatinLetters(_ s: String) -> Bool {
+        s.unicodeScalars.contains { $0.properties.isAlphabetic && $0.value > 0x024F }
     }
 
     /// Drops Whisper's silence hallucinations and special-token leftovers.

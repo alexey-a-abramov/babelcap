@@ -29,7 +29,7 @@ func pad(_ s: String, _ n: Int) -> String { s.count >= n ? String(s.prefix(n)) :
 
 let args = Array(CommandLine.arguments.dropFirst())
 guard let cmd = args.first else { usage() }
-Trace.fileEnabled = false
+Trace.fileEnabled = ProcessInfo.processInfo.environment["SUBVEIL_TRACE"] != nil
 
 switch cmd {
 case "list":
@@ -90,6 +90,10 @@ case "test":
             print("      heard: \(r.transcript.prefix(160))")
             if !r.translation.isEmpty { print("      → \(r.targetLanguage ?? ""): \(r.translation.prefix(160))") }
             if let w = r.warning { print("      ⚠︎ \(w)") }
+            if let rtf = r.rtf, r.error == nil {
+                let est = DeviceEstimate.laptops.compactMap { m in DeviceEstimate.rtf(rtf, on: m).map { "\(m.name.replacingOccurrences(of: "MacBook ", with: "")) \(DeviceEstimate.speedText($0))" } }
+                print("      ≈ on laptops: " + est.joined(separator: " · "))
+            }
         }
     }
 

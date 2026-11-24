@@ -492,6 +492,22 @@ struct ResultView: View {
                 if let f = result.firstTextAfter { GridRow { Text("First words").foregroundStyle(.secondary); Text(String(format: "%.1f s after the audio started", f)) } }
                 GridRow { Text("Start-up").foregroundStyle(.secondary); Text(String(format: "%.1f s (connect / load the model)", result.setupSeconds)) }
             }
+            if let rtf = result.rtf, result.error == nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Expected on other Macs — rough estimate from GPU size and chip generation").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 3) {
+                        ForEach(DeviceEstimate.laptops) { m in
+                            if let e = DeviceEstimate.rtf(rtf, on: m) {
+                                GridRow {
+                                    Text(m.name)
+                                    Text(DeviceEstimate.speedText(e) + " real time").monospacedDigit()
+                                    Text(DeviceEstimate.verdict(e)).foregroundStyle(e < 0.8 ? .green : e < 1 ? .orange : .red)
+                                }
+                            }
+                        }
+                    }.font(.caption)
+                }
+            }
             HStack(alignment: .top, spacing: 12) {
                 textBox("Script", clip.text)
                 textBox("Heard", result.transcript.isEmpty ? "—" : result.transcript)

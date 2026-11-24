@@ -13,7 +13,7 @@ public enum EngineKind: String, Codable, Sendable, CaseIterable {
 public enum EngineID: Hashable, Sendable {
     case soniox
     case appleSpeech
-    case whisperKit(folder: String)
+    case whisperKit(folder: String, translates: Bool)
 }
 
 /// Files to fetch from Hugging Face: every file under `path` (or the whole repo when empty), or only `files`.
@@ -86,13 +86,15 @@ public enum ModelCatalog {
     private static let mb: Int64 = 1_000_000
 
     private static func whisperKit(_ id: String, _ name: String, folder: String, mb size: Int64, ram: Int, rec: Int,
-                                   tokenizer: String = "openai/whisper-large-v3",
+                                   tokenizer: String = "openai/whisper-large-v3", translates: Bool = true,
                                    summary: String, english: Bool = false, notes: [String] = []) -> CatalogEntry {
         CatalogEntry(
             id: id, name: name, vendor: "OpenAI Whisper · Argmax WhisperKit", kind: .local, summary: summary,
-            outputs: "Transcript" + (english ? "" : " + built-in translation into English"),
+            outputs: "Transcript" + (english ? "" : translates ? " + built-in translation into English" : " (translation via Apple Translation)"),
             languages: english ? "English only" : "99 languages, auto-detected",
-            translation: english ? "None" : "Into English built in; other targets via Apple Translation (macOS 26)",
+            translation: english ? "Via Apple Translation (macOS 26)"
+                : translates ? "Into English built in; other targets via Apple Translation (macOS 26)"
+                : "Via Apple Translation (macOS 26) — this variant was not trained to translate",
             realtime: "Near real time: utterances are finalised after a short pause",
             runtime: "Core ML · Neural Engine + GPU", priceText: "Free · runs offline",
             docsURL: "https://github.com/argmaxinc/WhisperKit", license: "MIT",
@@ -102,7 +104,7 @@ public enum ModelCatalog {
                 DownloadSpec(repo: tokenizer, files: ["tokenizer.json", "tokenizer_config.json"], localDir: "model",
                              approxBytes: 3 * mb, role: "Tokenizer"),
             ],
-            minRAMGB: ram, recommendedRAMGB: rec, engine: .whisperKit(folder: folder), notes: notes)
+            minRAMGB: ram, recommendedRAMGB: rec, engine: .whisperKit(folder: folder, translates: translates && !english), notes: notes)
     }
 
     public static let all: [CatalogEntry] = [
@@ -123,18 +125,18 @@ public enum ModelCatalog {
             id: "apple-ondevice", name: "Apple on-device speech", vendor: "Apple (SpeechAnalyzer + Translation)", kind: .local,
             summary: "Built into macOS 26: no API key, no cost, nothing leaves the Mac. macOS downloads the language assets itself.",
             outputs: "Transcript (streaming) + translation through Apple Translation",
-            languages: "One spoken language per session (the first language in your profile)",
-            translation: "Apple Translation, offline, ~20 languages (install them in System Settings → General → Language & Region → Translation Languages)",
+            languages: "German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Chinese — not Russian or Hebrew. One language per session (the first in your profile)",
+            translation: "Apple Translation, offline, ~20 languages incl. Russian ⇄ English (not Hebrew); install packs in System Settings → General → Language & Region → Translation Languages",
             realtime: "Yes — streaming partial results", runtime: "System framework · Neural Engine",
             priceText: "Free · runs offline", docsURL: "https://developer.apple.com/documentation/speech/speechanalyzer",
             license: "Part of macOS", minRAMGB: 8, recommendedRAMGB: 8, minMacOS: 26, engine: .appleSpeech,
             notes: ["No automatic language detection: pick the spoken language as the first language hint.",
                     "Hebrew and some other languages may not be supported by Apple's transcriber — the test button tells you."]),
         whisperKit("whisperkit-large-v3-turbo", "Whisper large-v3 turbo", folder: "openai_whisper-large-v3-v20240930_turbo", mb: 1638,
-                   ram: 8, rec: 16, summary: "Best balance of accuracy and speed for local captions on Apple Silicon.",
+                   ram: 8, rec: 16, translates: false, summary: "Best balance of accuracy and speed for local captions on Apple Silicon.",
                    notes: ["Recommended local model."]),
         whisperKit("whisperkit-large-v3-turbo-q", "Whisper large-v3 turbo (compressed, 632 MB)", folder: "openai_whisper-large-v3-v20240930_turbo_632MB",
-                   mb: 646, ram: 8, rec: 8, summary: "Same model, quantised: a third of the size, slightly less accurate. Good for 8 GB Macs."),
+                   mb: 646, ram: 8, rec: 8, translates: false, summary: "Same model, quantised: a third of the size, slightly less accurate. Good for 8 GB Macs."),
         whisperKit("whisperkit-large-v3", "Whisper large-v3", folder: "openai_whisper-large-v3", mb: 3090, ram: 16, rec: 32,
                    summary: "The full large model: most accurate Whisper, but heavier and slower than turbo."),
         whisperKit("whisperkit-small", "Whisper small", folder: "openai_whisper-small", mb: 486, ram: 8, rec: 8,

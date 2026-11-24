@@ -25,6 +25,7 @@ public struct SonioxError: LocalizedError, Sendable, Equatable {
         case 408: "Idle timeout"
         case 413: "Session limit reached"
         case 429: "Soniox rate limit (too many streams or requests)"
+        case 0, 1000...: message   // local engines / warnings: the message says it all
         default: message.isEmpty ? "Soniox error \(code)" : "Soniox error \(code): \(message)"
         }
     }

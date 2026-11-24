@@ -41,8 +41,13 @@ public actor AppleSpeechStream: SpeechStream {
         continuation.yield(.state(.connecting))
         do {
             let wanted = config.languageHints?.first ?? "en"
-            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: wanted)) else {
-                throw LocalEngineError.unsupportedLanguage("Apple's on-device transcriber does not support “\(wanted)”. Choose another first language, or another engine.")
+            let supported = await SpeechTranscriber.supportedLocales
+            let code = String(wanted.prefix(2)).lowercased()
+            guard supported.contains(where: { $0.language.languageCode?.identifier == code }),
+                  let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: wanted)) else {
+                let names = Set(supported.compactMap { $0.language.languageCode?.identifier }).sorted()
+                    .compactMap { Locale(identifier: "en").localizedString(forLanguageCode: $0) }.joined(separator: ", ")
+                throw LocalEngineError.unsupportedLanguage("Apple's on-device recogniser has no model for \(Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code). It supports: \(names). Use Whisper or Soniox for this language.")
             }
             language = locale.language.languageCode?.identifier ?? wanted
             target = config.translationTarget(forSource: language)

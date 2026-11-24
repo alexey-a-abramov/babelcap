@@ -31,8 +31,8 @@ public enum EngineFactory {
         case .appleSpeech?:
             guard #available(macOS 26.0, *) else { throw LocalEngineError.needsNewerMacOS(26) }
             return AppleSpeechStream(config: config)
-        case .whisperKit?:
-            return WhisperKitStream(modelFolder: modelFolder(for: entry), config: config)
+        case let .whisperKit(_, translates)?:
+            return WhisperKitStream(modelFolder: modelFolder(for: entry), config: config, whisperTranslates: translates)
         case nil:
             throw LocalEngineError.modelMissing("\(entry.name) has no adapter yet.")
         }
@@ -113,13 +113,14 @@ public enum WER {
 
 public struct BenchmarkResult: Identifiable, Sendable {
     public enum Verdict: Sendable {
-        case excellent, good, borderline, tooSlow, failed
+        case excellent, good, borderline, tooSlow, inaccurate, failed
         public var title: String {
             switch self {
             case .excellent: "Excellent for live captions"
             case .good: "Good for live captions"
             case .borderline: "Borderline — may lag behind"
             case .tooSlow: "Too slow for live captions"
+            case .inaccurate: "Not usable — too many recognition errors"
             case .failed: "Did not work"
             }
         }
@@ -128,7 +129,7 @@ public struct BenchmarkResult: Identifiable, Sendable {
             case .excellent: "checkmark.seal.fill"
             case .good: "checkmark.circle.fill"
             case .borderline: "exclamationmark.triangle.fill"
-            case .tooSlow, .failed: "xmark.octagon.fill"
+            case .tooSlow, .inaccurate, .failed: "xmark.octagon.fill"
             }
         }
     }
@@ -160,6 +161,14 @@ public struct BenchmarkResult: Identifiable, Sendable {
 
     public var verdict: Verdict {
         if error != nil || transcript.isEmpty { return .failed }
+        if let wer, wer > 0.5 { return .inaccurate }
+        let speed = speedVerdict
+        // Noticeable errors cap the verdict even when the engine is fast.
+        if let wer, wer > 0.2, speed == .excellent || speed == .good { return .borderline }
+        return speed
+    }
+
+    private var speedVerdict: Verdict {
         if let rtf {
             switch rtf { case ..<0.25: return .excellent; case ..<0.6: return .good; case ..<1.0: return .borderline; default: return .tooSlow }
         }
@@ -200,8 +209,15 @@ public enum BenchmarkRunner {
         let setupStart = Date()
         await stream.start()
         // Wait until live (model load / connection) or failed.
-        while !collector.isLive && !collector.failed && Date().timeIntervalSince(setupStart) < 180 {
+        var lastNote = Date.distantPast
+        while !collector.isLive && !collector.failed && Date().timeIntervalSince(setupStart) < 600 {
             try? await Task.sleep(for: .milliseconds(20))
+            if Date().timeIntervalSince(lastNote) >= 1 {
+                lastNote = Date()
+                let s = Int(Date().timeIntervalSince(setupStart))
+                progress?(entry.kind == .cloud ? "Connecting to \(entry.vendor)… \(s) s"
+                          : "Loading the model… \(s) s" + (s > 20 ? " (the first load prepares the model for this Mac and can take a while)" : ""))
+            }
         }
         result.setupSeconds = Date().timeIntervalSince(setupStart)
         guard collector.isLive else {
