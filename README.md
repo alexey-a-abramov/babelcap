@@ -38,7 +38,19 @@ can't read. Change the target language (or switch to two-way, e.g. RU ⇄ EN) pe
 The subtitle panel stays the size you give it: drag it anywhere, resize it from any edge, new lines come in at the
 bottom and old ones fade away. Each session starts from a clean slate.
 
-Recognition and translation are done by [Soniox](https://soniox.com) in real time; you use your own API key.
+## Choose your engine
+
+Open **Models & Providers** (menu bar, the control panel's gear, or Settings) — a full catalog of speech engines:
+
+- **Cloud** — Soniox is built in (the most accurate and cheapest, ~$0.12–0.18/h, your own key). Gladia, Speechmatics,
+  OpenAI, Gemini, Azure, ElevenLabs, AssemblyAI and Deepgram are listed with prices, where to get a key and where to top
+  up; their adapters are coming.
+- **On this Mac, free and offline** — Apple's built-in on-device speech (macOS 26) and OpenAI Whisper via WhisperKit
+  (tiny → large-v3). Each shows its download size, memory needs and whether your Mac qualifies; downloads resume after a
+  pause or restart, are checked against SHA-256, and live only in Subveil's own folder.
+- **Test before you switch** — run a short clip (7 languages) through any engine: accuracy (word error rate), how many
+  times faster than real time it runs, and a plain verdict on whether it keeps up with live captions. The Benchmark tab
+  compares every ready engine side by side.
 
 ## Quick start
 
@@ -63,7 +75,8 @@ unless you turn it on. Recording other people may require their consent.
 
 ## For developers
 
-`swift test` runs the test suite (a local mock Soniox server, no network or key needed).
+`swift test` runs the test suite (a local mock Soniox server and a fake model hub, no network or key needed).
+`swift run subveil-bench list | download <id> | test <id>|ready --clip ru --target en` downloads and benchmarks engines from the terminal.
 Architecture and conventions: [AGENTS.md](AGENTS.md).
 
 ## License

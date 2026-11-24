@@ -31,6 +31,10 @@ The product was specified as "Live Captions for macOS" (23 Nov 2026); the workin
 | `SonioxClient` | `SonioxSession` (actor: connect, reconnect, ping, 290-min rotation, replay), Codable models, `SonioxError`, `SonioxKeyVerifier`, `SourceKind`, `Trace` |
 | `Transcript` | `TokenAssembler` (separate original/translation tracks), `TranscriptStore` (@MainActor, ≤ 1 update per frame), `EchoDeduper`, `Exporters` (MD/SRT/JSON) |
 | `AppSettings` | `Profile` and nested settings, `SettingsStore`, `KeychainStore`. *(Not named `Settings` — clashes with SwiftUI.)* |
+| `LocalEngines` | On-device engines behind `SpeechStream`: `AppleSpeechStream` (SpeechAnalyzer, macOS 26), `WhisperKitStream` (+ `WhisperKitPool`: one loaded model, serialised inference), `AppleTranslator` |
+| `ModelHub` | `ModelCatalog` (all cloud + local engines, prices, URLs, sizes, RAM), `ModelDownloads` (resumable HTTP Range, SHA-256), `ModelStorage` (`~/Library/Application Support/Subveil/Models/<id>`), `EngineFactory`, `BenchmarkRunner` + clips + WER |
+| `CatalogUI` | "Models & Providers" window: browse / compare / benchmark |
+| `SubveilBench` (exec) | `subveil-bench` CLI: list, download, test engines |
 | `CaptionsCore` | `CaptionsEngine` — orchestration: source runtimes, sessions, live switching, auto-pause, cost, device events, `LevelProbe` |
 | `Overlay` | `CaptionView` (Captions/Feed/Dual/Split), `CaptionPanel` + `OverlayController` (movable/resizable panel, click-through, shown only while a session runs) |
 | `ControlHUD` | `ControlView` + `ControlPanelController` (capsule, pill, expansion, history) |
@@ -47,6 +51,9 @@ swift test                        # 24 tests: token assembly, Soniox models, moc
 scripts/build_app.sh              # release → build/Subveil.app (signed, hardened runtime)
 scripts/install_app.sh            # build + sign + install to ~/Applications/Subveil.app + launch
 scripts/install_app.sh "<identity>"   # use a specific signing identity (e.g. Developer ID)
+swift run subveil-bench list                       # catalog + what is installed
+swift run subveil-bench download whisperkit-large-v3-turbo
+swift run subveil-bench test ready --clip ru --target en   # every ready engine on the Russian clip
 swift scripts/make_icon.swift && iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns   # regenerate the icon
 tail -f ~/Library/Logs/Subveil/trace.log   # live diagnostics
 ```
@@ -73,4 +80,7 @@ An ad-hoc signature changes with every build and makes macOS ask again.
   so it is read off the main thread, and presence is checked with `KeychainStore.exists()` (no prompt).
 - Voice processing ducks other audio; multichannel devices may give a quiet signal (AGC is still a TODO).
 - BSD `sed` on macOS has no `\b` — use `perl -pi -e`.
+- Every engine speaks `SpeechStream` and emits Soniox-style tokens (final/non-final, original/translation, `<end>`), so the
+  transcript assembler and UI are engine-agnostic. New adapters: implement `SpeechStream`, set `engine` on the catalog entry.
+- WhisperKit finds `tokenizer.json` in the model folder; the catalog downloads it there so nothing lands in a hidden cache.
 - Soniox keys look like `snx_proj_…` (long, with `.`, `_`, `-`); a wrong key gives `401 Incorrect API key provided`.

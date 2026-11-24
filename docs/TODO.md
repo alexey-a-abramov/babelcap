@@ -101,6 +101,20 @@ Needs a real Soniox key and live audio.
 - [x] App icon; [ ] final product name (open question)
 - [ ] Review the recording-consent reminder wording in onboarding
 
+## Stage 7 — Engines, model catalog, downloads, benchmarks
+
+- [x] `SpeechStream` protocol; Soniox, Apple on-device and WhisperKit behind it; engine chosen in settings and switchable live
+- [x] Catalog of 23 engines (spec "Real-Time Transcription + Translation: Model Catalog", Nov 2026): price/hour, key + top-up links, languages, translation, size, RAM, licence
+- [x] Resumable downloads (HTTP Range, survives restarts), SHA-256 verification, disk-space check, README + manifest per model, delete
+- [x] All 7 WhisperKit models downloaded and verified on the dev Mac (≈ 7.7 GB)
+- [x] Benchmark clips (EN/RU/DE/FR/ES/IT/HE, macOS voices), WER, speed (× real time) / latency, verdict; `subveil-bench` CLI; Benchmark tab
+- [x] "Models & Providers" window (browse / compare / benchmark), per-provider API keys in the Keychain
+- [ ] Cloud adapters: Gladia, Speechmatics, OpenAI realtime-translate, Gemini Live, Azure (SDK), ElevenLabs/AssemblyAI/Deepgram (+ a translation step)
+- [ ] Local cascade: Whisper (MLX) + EuroLLM-9B (mlx-lm) translation; Python sidecar host for SimulStreaming / Voxtral / Hibiki / Seamless
+- [ ] Apple engine: auto language detection (it needs a fixed language); show Apple Translation pack status in the catalog
+- [ ] Whisper: LocalAgreement streaming policy for lower draft latency; VAD instead of an energy threshold
+- [ ] Verify the catalog window on screen (snapshots render off-screen; AppKit controls show as placeholders there)
+
 ## Deviations from the spec (deliberate)
 
 1. **Reconnect** is implemented as a *new* Soniox session + audio replay from the last finalised position
@@ -141,6 +155,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-24 — Multi-engine support: model catalog window, resumable verified downloads into the app folder, Apple on-device and WhisperKit engines, benchmark clips + CLI.
 
 - 2026-11-23 — Target language can be changed mid-session from the subtitle toolbar (globe menu), the menu bar ("Translate to") or the HUD; one settings watcher swaps only streams whose Soniox config changed. Targeted device-change handling for HDMI / AirPods.
 
