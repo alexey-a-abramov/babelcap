@@ -14,10 +14,10 @@ final class Gate: @unchecked Sendable {
 /// Holder for the *current* Soniox session so it can be swapped without interrupting the audio flow.
 final class SessionBox: @unchecked Sendable {
     private let lock = NSLock()
-    private var session: SonioxSession?
-    func get() -> SonioxSession? { lock.lock(); defer { lock.unlock() }; return session }
-    func set(_ s: SonioxSession?) { lock.lock(); session = s; lock.unlock() }
-    func take() -> SonioxSession? { lock.lock(); defer { lock.unlock() }; let s = session; session = nil; return s }
+    private var session: (any SpeechStream)?
+    func get() -> (any SpeechStream)? { lock.lock(); defer { lock.unlock() }; return session }
+    func set(_ s: (any SpeechStream)?) { lock.lock(); session = s; lock.unlock() }
+    func take() -> (any SpeechStream)? { lock.lock(); defer { lock.unlock() }; let s = session; session = nil; return s }
 }
 
 /// Combines 100 ms chunks from N inputs. With one input it is a pass-through; with two it sums the PCM

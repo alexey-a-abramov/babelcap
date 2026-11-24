@@ -1,0 +1,65 @@
+[
+  {
+    "id": "en",
+    "language": "en",
+    "title": "English — meeting intro (Samantha, macOS voice)",
+    "file": "en.wav",
+    "text": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "english": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "seconds": 8.19
+  },
+  {
+    "id": "ru",
+    "language": "ru",
+    "title": "Russian — meeting intro (Milena, macOS voice)",
+    "file": "ru.wav",
+    "text": "Доброе утро всем. Сегодня мы обсудим план релиза на следующую неделю и решим, кто отвечает за тестирование новой версии приложения.",
+    "english": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "seconds": 8.39
+  },
+  {
+    "id": "de",
+    "language": "de",
+    "title": "German — meeting intro (Anna, macOS voice)",
+    "file": "de.wav",
+    "text": "Guten Morgen zusammen. Heute besprechen wir den Release-Plan für nächste Woche und entscheiden, wer für das Testen der neuen Version der Anwendung verantwortlich ist.",
+    "english": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "seconds": 9.6
+  },
+  {
+    "id": "fr",
+    "language": "fr",
+    "title": "French — meeting intro (Thomas, macOS voice)",
+    "file": "fr.wav",
+    "text": "Bonjour à tous. Aujourd'hui, nous allons examiner le plan de sortie de la semaine prochaine et décider qui est responsable des tests de la nouvelle version de l'application.",
+    "english": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "seconds": 9.78
+  },
+  {
+    "id": "es",
+    "language": "es",
+    "title": "Spanish — meeting intro (Paulina, macOS voice)",
+    "file": "es.wav",
+    "text": "Buenos días a todos. Hoy vamos a revisar el plan de lanzamiento de la próxima semana y decidir quién es responsable de probar la nueva versión de la aplicación.",
+    "english": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "seconds": 9.75
+  },
+  {
+    "id": "it",
+    "language": "it",
+    "title": "Italian — meeting intro (Alice, macOS voice)",
+    "file": "it.wav",
+    "text": "Buongiorno a tutti. Oggi esamineremo il piano di rilascio della prossima settimana e decideremo chi è responsabile dei test della nuova versione dell'applicazione.",
+    "english": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "seconds": 8.69
+  },
+  {
+    "id": "he",
+    "language": "he",
+    "title": "Hebrew — meeting intro (Carmit, macOS voice)",
+    "file": "he.wav",
+    "text": "בוקר טוב לכולם. היום נעבור על תוכנית השחרור לשבוע הבא ונחליט מי אחראי על בדיקת הגרסה החדשה של האפליקציה.",
+    "english": "Good morning everyone. Today we will review the release plan for next week and decide who is responsible for testing the new version of the application.",
+    "seconds": 7.88
+  }
+]

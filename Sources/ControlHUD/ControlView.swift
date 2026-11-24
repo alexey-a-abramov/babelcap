@@ -22,10 +22,11 @@ public struct HUDActions {
     public var export: (ExportFormat) -> Void
     public var hidePanel: () -> Void
     public var quit: () -> Void
+    public var openModels: () -> Void
     public init(openSettings: @escaping () -> Void, toggleEditing: @escaping () -> Void, export: @escaping (ExportFormat) -> Void,
-                hidePanel: @escaping () -> Void, quit: @escaping () -> Void) {
+                hidePanel: @escaping () -> Void, quit: @escaping () -> Void, openModels: @escaping () -> Void = {}) {
         self.openSettings = openSettings; self.toggleEditing = toggleEditing; self.export = export
-        self.hidePanel = hidePanel; self.quit = quit
+        self.hidePanel = hidePanel; self.quit = quit; self.openModels = openModels
     }
 }
 
@@ -294,7 +295,13 @@ public struct ControlView: View {
                 Picker("Profile", selection: $settings.activeID) { ForEach(settings.profiles) { Text($0.name).tag($0.id) } }
             } label: { Label(settings.profile.name, systemImage: "person.crop.rectangle") }
             .tip("Profile — languages, translation, look and context saved together")
+            Button { actions.openModels() } label: {
+                Label(engine.provider.name, systemImage: engine.provider.kind == .cloud ? "cloud" : "desktopcomputer").lineLimit(1)
+            }
+            .buttonStyle(.borderless)
+            .tip("Speech engine in use — click to choose another (cloud or on this Mac), add keys, download and test models")
             Menu {
+                Button("Models & Providers…", action: actions.openModels)
                 Button("Settings…", action: actions.openSettings)
                 Button("Hide panel", action: actions.hidePanel)
                 Divider()

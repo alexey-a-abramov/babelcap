@@ -5,6 +5,9 @@ import SonioxClient
 public struct KeychainStore: Sendable {
     public static let standard = KeychainStore(service: "app.subveil.soniox")
 
+    /// One Keychain item per cloud provider ("app.subveil.<provider id>"; Soniox keeps its original item).
+    public static func forProvider(_ id: String) -> KeychainStore { KeychainStore(service: "app.subveil.\(id)") }
+
     public enum ReadResult: Sendable, Equatable {
         case found(String)
         case notFound

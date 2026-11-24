@@ -1,6 +1,8 @@
 import AppKit
 import AppSettings
 import CaptionsCore
+import CatalogUI
+import ModelHub
 import Overlay
 import SonioxClient
 import SwiftUI
@@ -47,6 +49,15 @@ private struct AccountTab: View {
                     if let status { Text(status).foregroundStyle(status.hasPrefix("✓") ? .green : .secondary) }
                 }
                 Text("The key is stored only in the macOS Keychain. It is never written to logs or exported profiles.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Speech engine") {
+                HStack {
+                    Text("In use: \(ModelCatalog.entry(settings.providerID)?.name ?? settings.providerID)")
+                    Spacer()
+                    Button("Models & Providers…") { AppContext.shared.openModelCatalog() }
+                }
+                Text("Choose Soniox or another cloud API, or a model that runs on this Mac. Each cloud provider has its own key there.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Advanced") {

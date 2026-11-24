@@ -21,6 +21,7 @@ struct PersistedState: Codable {
     var onboardingDone: Bool
     var schemaVersion: Int?
     var showInDock: Bool?
+    var providerID: String?
 }
 
 @MainActor @Observable
@@ -32,6 +33,8 @@ public final class SettingsStore {
     public var onboardingDone: Bool { didSet { scheduleSave() } }
     /// Show a Dock icon (regular app) in addition to the menu bar item.
     public var showInDock: Bool { didSet { scheduleSave() } }
+    /// Speech engine in use: a catalog id ("soniox", "apple-ondevice", "whisperkit-…").
+    public var providerID: String { didSet { scheduleSave() } }
     public private(set) var hasAPIKey: Bool
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -49,9 +52,11 @@ public final class SettingsStore {
         var model = "stt-rt-v6"
         var onboarded = false
         var dock = true
+        var provider = "soniox"
         if let d = try? Data(contentsOf: url), let s = try? JSONDecoder().decode(PersistedState.self, from: d), !s.profiles.isEmpty {
             loaded = s.profiles; active = s.activeID; model = s.modelName; onboarded = s.onboardingDone
             dock = s.showInDock ?? true
+            provider = s.providerID ?? "soniox"
             if (s.schemaVersion ?? 1) < 5 {
                 // v5: subtitle panel movable again (click-through was easy to switch on by accident).
                 for i in loaded.indices { loaded[i].layout.clickThrough = false }
@@ -75,7 +80,7 @@ public final class SettingsStore {
             }
         }
         if !loaded.contains(where: { $0.id == active }) { active = loaded[0].id }
-        profiles = loaded; activeID = active; modelName = model; onboardingDone = onboarded; showInDock = dock
+        profiles = loaded; activeID = active; modelName = model; onboardingDone = onboarded; showInDock = dock; providerID = provider
         hasAPIKey = keychain.exists()
     }
 
@@ -128,7 +133,7 @@ public final class SettingsStore {
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled, let self else { return }
-            let state = PersistedState(profiles: profiles, activeID: activeID, modelName: modelName, onboardingDone: onboardingDone, schemaVersion: 5, showInDock: showInDock)
+            let state = PersistedState(profiles: profiles, activeID: activeID, modelName: modelName, onboardingDone: onboardingDone, schemaVersion: 5, showInDock: showInDock, providerID: providerID)
             let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             if let d = try? enc.encode(state) { try? d.write(to: fileURL, options: .atomic) }
         }

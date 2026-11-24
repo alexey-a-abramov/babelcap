@@ -1,6 +1,7 @@
 import AppKit
 import AudioCapture
 import AppSettings
+import ModelHub
 import Foundation
 import Observation
 import os
@@ -40,6 +41,8 @@ final class Runtime {
     var hasTranslation = false
     /// Config of the current Soniox session (to detect what a settings change actually affects).
     var config: SonioxConfig?
+    var providerID = ""
+    var pricePerHour: Double = 0
     var mixer: ChunkMixer?
 
     init(kind: SourceKind) { self.kind = kind }
@@ -111,24 +114,34 @@ public final class CaptionsEngine {
     public func start() async {
         Trace.log("engine", "start requested (state \(runState))")
         guard runState == .idle else { return }
-        // Off the main thread: macOS may show a "Subveil wants to use your confidential information" dialog here.
-        let keychain = settings.keychain
-        let keyResult = await Task.detached { keychain.read() }.value
-        guard runState == .idle else { return }
-        switch keyResult {
-        case let .found(k):
-            apiKey = k
-        case .notFound:
-            needsKey = true
-            lastError = "No Soniox API key saved. Open Settings → Account."
-            Trace.log("engine", "start aborted: no key")
-            return
-        case let .failed(st):
-            needsKey = true
-            lastError = "Keychain refused access (\(KeychainStore.message(st))). Re-enter the key in Settings → Account."
-            Trace.log("engine", "start aborted: keychain status \(st)")
+        let entry = provider
+        apiKey = ""
+        if entry.needsAPIKey {
+            // Off the main thread: macOS may show a "Subveil wants to use your confidential information" dialog here.
+            let keychain = entry.id == "soniox" ? settings.keychain : KeychainStore.forProvider(entry.id)
+            let keyResult = await Task.detached { keychain.read() }.value
+            guard runState == .idle else { return }
+            switch keyResult {
+            case let .found(k):
+                apiKey = k
+            case .notFound:
+                needsKey = true
+                lastError = "No API key for \(entry.name). Open Models & Providers to add one."
+                Trace.log("engine", "start aborted: no key for \(entry.id)")
+                return
+            case let .failed(st):
+                needsKey = true
+                lastError = "Keychain refused access (\(KeychainStore.message(st))). Re-enter the key in Models & Providers."
+                Trace.log("engine", "start aborted: keychain status \(st)")
+                return
+            }
+        }
+        if let problem = EngineFactory.problem(for: entry, apiKey: entry.needsAPIKey ? apiKey : nil) {
+            lastError = "\(entry.name): \(problem)"
+            Trace.log("engine", "start aborted: \(problem)")
             return
         }
+        Trace.log("engine", "engine: \(entry.id)")
         needsKey = false; lastError = nil
         store.clear()   // every session starts from a clean transcript
         store.dedupeEchoes = settings.profile.session.dedupeEchoes
@@ -219,7 +232,8 @@ public final class CaptionsEngine {
         guard isRunning else { return 0 }
         await reconcile()
         var swapped = 0
-        for rt in runtimes.values where rt.conn != .autoPaused && rt.config != nil && rt.config != makeConfig(for: rt.kind) {
+        for rt in runtimes.values where rt.conn != .autoPaused && rt.config != nil
+            && (rt.config != makeConfig(for: rt.kind) || rt.providerID != provider.id) {
             Trace.log("engine", "config changed for \(rt.kind.rawValue) → new session")
             await swapSession(rt)
             swapped += 1
@@ -405,12 +419,28 @@ public final class CaptionsEngine {
         return c
     }
 
-    private func openSession(_ rt: Runtime) async -> SonioxSession {
+    /// The catalog entry selected in settings (falls back to Soniox).
+    public var provider: CatalogEntry {
+        ModelCatalog.entry(settings.providerID).flatMap { $0.isReady ? $0 : nil } ?? ModelCatalog.entry(ModelCatalog.defaultProviderID)!
+    }
+
+    private func openSession(_ rt: Runtime) async -> any SpeechStream {
         let cfg = makeConfig(for: rt.kind)
+        let entry = provider
         rt.config = cfg
+        rt.providerID = entry.id
         rt.hasTranslation = cfg.translation != nil
-        Trace.log("engine", "open session \(rt.kind.rawValue): translation=\(cfg.translation != nil) diarization=\(cfg.enableSpeakerDiarization) hints=\(cfg.languageHints ?? [])")
-        let s = SonioxSession(apiKey: apiKey, config: cfg, endpoint: endpoint)
+        rt.pricePerHour = entry.id == "soniox" ? (cfg.translation != nil ? 0.18 : 0.12) : (entry.pricePerHour ?? 0)
+        Trace.log("engine", "open session \(rt.kind.rawValue) on \(entry.id): translation=\(cfg.translation != nil) diarization=\(cfg.enableSpeakerDiarization) hints=\(cfg.languageHints ?? [])")
+        let s: any SpeechStream
+        if entry.engine == .soniox {
+            s = SonioxSession(apiKey: apiKey, config: cfg, endpoint: endpoint)
+        } else {
+            do { s = try EngineFactory.makeStream(for: entry, config: cfg, apiKey: apiKey) } catch {
+                lastError = "\(entry.name): \(error.localizedDescription)"
+                s = FailedStream(error.localizedDescription)
+            }
+        }
         rt.sessionID += 1
         let id = rt.sessionID
         await s.start()
@@ -504,7 +534,7 @@ public final class CaptionsEngine {
         var cost = estimatedCost
         for rt in runtimes.values where rt.box.get() != nil {
             rt.billedSeconds += 1
-            cost += (rt.hasTranslation ? 0.18 : 0.12) / 3600
+            cost += rt.pricePerHour / 3600
         }
         estimatedCost = cost
 

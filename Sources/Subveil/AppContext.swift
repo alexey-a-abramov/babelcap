@@ -1,6 +1,7 @@
 import AppKit
 import AppSettings
 import CaptionsCore
+import CatalogUI
 import ControlHUD
 import Overlay
 import SonioxClient
@@ -34,7 +35,8 @@ final class AppContext {
                 toggleEditing: { [weak self] in self?.toggleEditing() },
                 export: { [weak self] in self?.export($0) },
                 hidePanel: { [weak self] in self?.hud.hide() },
-                quit: { [weak self] in self?.quit() }))
+                quit: { [weak self] in self?.quit() },
+                openModels: { [weak self] in self?.openModelCatalog() }))
         hud.show()
         overlay.openSettings = { [weak self] in self?.openSettings() }
         overlay.state.onSetTarget = { [weak self] code, source in self?.setTarget(code, for: source) }
@@ -44,7 +46,8 @@ final class AppContext {
         trackEngine()
         trackSettingsForEngine()
         HotKeys.shared.registerDefaults(self)
-        if !settings.onboardingDone || !settings.hasAPIKey { showOnboarding() }
+        if CommandLine.arguments.contains("--open-models") { openModelCatalog() }
+        else if !settings.onboardingDone || !settings.hasAPIKey { showOnboarding() }
     }
 
     // MARK: Actions
@@ -171,6 +174,23 @@ final class AppContext {
         let kind: TranslationSettings.Kind = on ? .oneWay : .off
         settings.profile.translationSystem.kind = kind
         settings.profile.translationMic.kind = kind   // the settings watcher swaps the affected sessions
+    }
+
+    private var catalogWindow: NSWindow?
+
+    /// "Models & Providers" — a large, resizable window.
+    func openModelCatalog() {
+        NSApp.activate()
+        if let w = catalogWindow { w.makeKeyAndOrderFront(nil); return }
+        let w = NSWindow(contentViewController: NSHostingController(rootView: ModelCatalogView(settings: settings, engine: engine)))
+        w.title = "Models & Providers"
+        w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        w.setContentSize(NSSize(width: 1240, height: 800))
+        w.isReleasedWhenClosed = false
+        w.setFrameAutosaveName("SubveilModelCatalog")
+        w.center()
+        catalogWindow = w
+        w.makeKeyAndOrderFront(nil)
     }
 
     func showOnboarding() {

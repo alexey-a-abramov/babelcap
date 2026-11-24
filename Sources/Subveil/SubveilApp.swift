@@ -61,6 +61,7 @@ struct MenuContent: View {
         Button("Position subtitles (preview)") { ctx.togglePositioning() }
         Button(ctx.settings.profile.layout.clickThrough ? "Make subtitles movable / resizable" : "Make subtitles click-through") { ctx.toggleEditing() }
         Divider()
+        Button("Models & Providers…") { ctx.openModelCatalog() }
         Button("Welcome & permissions…") { ctx.showOnboarding() }
         Button("Settings…") { ctx.openSettings() }.keyboardShortcut(",")
         Divider()
