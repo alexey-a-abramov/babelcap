@@ -113,6 +113,23 @@ case "translate":
         print("→ \(first)\n   first call \(String(format: "%.2f", t1.timeIntervalSince(t0))) s (incl. load), warm call \(String(format: "%.2f", Date().timeIntervalSince(t1))) s\n   (\(again == first ? "deterministic" : "second: " + again))")
     } catch { print("error: \(error)") }
 
+case "summarize":
+    // subveil-bench summarize <lang> — summarises a short built-in meeting transcript with the local model.
+    let lang = args.count > 1 ? args[1] : "en"
+    let transcript = """
+    Them speaker 1: Good morning everyone. Today we review the release plan for next week.
+    Them speaker 2: The main risk is the database migration; it needs a rollback plan.
+    Me: I can prepare the rollback script by Wednesday.
+    Them speaker 1: Great. Then we ship on Thursday if QA signs off. Anna will run the regression tests on Tuesday.
+    Them speaker 2: And we postpone the new onboarding screens to the next sprint.
+    """
+    let t0 = Date()
+    do {
+        let out = try await MeetingSummary.summarize(transcript: transcript, language: lang)
+        print(out)
+        print("(\(MeetingSummary.model?.name ?? "-"), \(String(format: "%.1f", Date().timeIntervalSince(t0))) s)")
+    } catch { print("error: \(error.localizedDescription)") }
+
 case "raw":
     // Diagnostics: one direct WhisperKit call on a clip — subveil-bench raw <model-id> <clip> [transcribe|translate] [lang|auto]
     guard args.count >= 3, let e = ModelCatalog.entry(args[1]), let c = BenchmarkClips.all().first(where: { $0.id == args[2] }) else { usage() }

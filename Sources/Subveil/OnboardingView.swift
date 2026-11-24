@@ -1,6 +1,7 @@
 import AppKit
 import AppSettings
 import CaptionsCore
+import ModelHub
 import SonioxClient
 import SwiftUI
 
@@ -13,14 +14,26 @@ struct OnboardingView: View {
     @State private var keyStatus: String?
     @State private var verifying = false
     @State private var probe = LevelProbe()
+    @State private var mode: Mode?
+    @State private var downloads = ModelDownloads.shared
+
+    enum Mode { case cloud, local }
+
+    /// The offline starter kit: best local recogniser + the recommended translator.
+    static let localKit = ["whisperkit-large-v3-turbo", "mlx-translategemma-4b"]
+
+    private var kitEntries: [CatalogEntry] { Self.localKit.compactMap(ModelCatalog.entry) }
+    private var kitInstalled: Bool { Self.localKit.allSatisfy { downloads.isInstalled($0) } }
+    private var kitBytes: Int64 { kitEntries.reduce(0) { $0 + $1.downloadBytes } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Step \(step + 1) of 3").font(.caption).foregroundStyle(.secondary)
+            Text("Step \(step + 1) of 4").font(.caption).foregroundStyle(.secondary)
             Group {
                 switch step {
-                case 0: keyStep
-                case 1: micStep
+                case 0: engineStep
+                case 1: mode == .local ? AnyView(localStep) : AnyView(keyStep)
+                case 2: micStep
                 default: systemStep
                 }
             }
@@ -30,13 +43,85 @@ struct OnboardingView: View {
             HStack {
                 if step > 0 { Button("Back") { probe.stop(); step -= 1 } }
                 Spacer()
-                if step < 2 { Button("Next") { probe.stop(); step += 1 }.keyboardShortcut(.defaultAction).disabled(step == 0 && !settings.hasAPIKey) }
+                if step < 3 { Button("Next") { probe.stop(); step += 1 }.keyboardShortcut(.defaultAction).disabled(!canContinue) }
                 else { Button("Finish") { probe.stop(); settings.onboardingDone = true; done() }.keyboardShortcut(.defaultAction) }
             }
         }
         .padding(24)
-        .frame(width: 480, height: 400)
+        .frame(width: 560, height: 460)
         .onDisappear { probe.stop() }
+    }
+
+    private var canContinue: Bool {
+        switch step {
+        case 0: mode != nil
+        case 1: mode == .local ? kitEntries.allSatisfy { downloads.status($0.id).phase != .notInstalled } : settings.hasAPIKey
+        default: true
+        }
+    }
+
+    // MARK: Engine choice
+
+    private var engineStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("How should Subveil listen?").font(.title2.bold())
+            choice(.cloud, icon: "cloud.fill", title: "Cloud — Soniox",
+                   text: "The most accurate, words appear instantly, 60+ languages with translation. About $0.12–0.18 per hour; you need your own Soniox API key.")
+            choice(.local, icon: "desktopcomputer", title: "On this Mac — free and offline",
+                   text: "Nothing leaves the Mac, no key, no cost. Downloads Whisper large-v3 turbo + TranslateGemma 4B (\(kitBytes.humanBytes)). Needs Apple Silicon with 8 GB+; text appears about a second later than with Soniox.")
+            Text("You can switch any time in Models & Providers, and use both.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func choice(_ m: Mode, icon: String, title: String, text: String) -> some View {
+        Button { mode = m } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon).font(.title2).frame(width: 30).foregroundStyle(Color.accentColor)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.headline)
+                    Text(text).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: mode == m ? "checkmark.circle.fill" : "circle").foregroundStyle(mode == m ? Color.accentColor : .secondary)
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(mode == m ? Color.accentColor : .secondary.opacity(0.3), lineWidth: mode == m ? 2 : 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Local download
+
+    private var localStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Download the offline models").font(.title2.bold())
+            Text("Stored only in Subveil's own folder. Downloads continue in the background and resume after a pause or restart — you can go on with the setup meanwhile.")
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            ForEach(kitEntries) { e in
+                let st = downloads.status(e.id)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(e.name).fontWeight(.semibold)
+                        Spacer()
+                        Text(st.phase == .installed ? "✓ Installed" : "\(st.received.humanBytes) / \(e.downloadBytes.humanBytes)")
+                            .font(.caption).foregroundStyle(st.phase == .installed ? .green : .secondary)
+                    }
+                    ProgressView(value: st.phase == .installed ? 1 : st.fraction)
+                    if case let .failed(msg) = st.phase { Text(msg).font(.caption).foregroundStyle(.red) }
+                }
+            }
+            HStack {
+                Button(kitInstalled ? "Installed" : "Download \(kitBytes.humanBytes)") {
+                    kitEntries.forEach { downloads.start($0) }
+                }
+                .buttonStyle(.borderedProminent).disabled(kitInstalled)
+            }
+        }
+        .onAppear {
+            settings.providerID = Self.localKit[0]
+            settings.translatorID = TranslatorChoice.auto
+        }
     }
 
     private var keyStep: some View {

@@ -19,6 +19,7 @@ final class AppContext {
     let engine: CaptionsEngine
     let overlay: OverlayController
     private(set) var hud: ControlPanelController!
+    private var voice: TranslationVoice?
     private var onboardingWindow: NSWindow?
     private var booted = false
 
@@ -39,6 +40,7 @@ final class AppContext {
                 hidePanel: { [weak self] in self?.hud.hide() },
                 quit: { [weak self] in self?.quit() },
                 openModels: { [weak self] in self?.openModelCatalog() }))
+        voice = TranslationVoice(store: store, settings: settings)
         hud.show()
         overlay.openSettings = { [weak self] in self?.openSettings() }
         overlay.state.onSetTarget = { [weak self] code, source in self?.setTarget(code, for: source) }
@@ -50,7 +52,7 @@ final class AppContext {
         HotKeys.shared.registerDefaults(self)
         if CommandLine.arguments.contains("--selftest-translate") { selfTestTranslate(); return }
         if CommandLine.arguments.contains("--open-models") { openModelCatalog() }
-        else if !settings.onboardingDone || !settings.hasAPIKey { showOnboarding() }
+        else if !settings.onboardingDone || (engine.provider.needsAPIKey && !settings.hasAPIKey) { showOnboarding() }
     }
 
     // MARK: Actions

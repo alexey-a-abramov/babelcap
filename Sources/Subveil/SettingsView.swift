@@ -285,6 +285,12 @@ private struct SessionTab: View {
                         value: $settings.profile.session.autoPauseMinutes, in: 0...60)
                 Text("Soniox bills session duration. The session reopens on the first voice.").font(.caption).foregroundStyle(.secondary)
             }
+            Section("Spoken translation") {
+                Toggle("Read translations of other people's speech aloud", isOn: $settings.profile.session.speakTranslations)
+                Slider(value: $settings.profile.session.speechRate, in: 0.35...0.65) { Text("Speed") }
+                Text("Uses the macOS voice of the target language. Best with headphones, so the voice is not captured again.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Echo") {
                 Toggle("Hide mic phrases that duplicate system audio", isOn: $settings.profile.session.dedupeEchoes)
             }

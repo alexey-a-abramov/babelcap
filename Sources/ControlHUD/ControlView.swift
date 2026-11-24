@@ -2,6 +2,7 @@ import AppKit
 import AppSettings
 import AudioCapture
 import CaptionsCore
+import ModelHub
 import SonioxClient
 import SharedUI
 import SwiftUI
@@ -42,6 +43,9 @@ public struct ControlView: View {
     @State private var apps: [AudioApp] = []
     @State private var showApps = false
     @State private var search = ""
+    @State private var summary: String?
+    @State private var summarizing = false
+    @State private var showSummary = false
     @Namespace private var ns
 
     public init(settings: SettingsStore, engine: CaptionsEngine, store: TranscriptStore, hud: HUDState,
@@ -267,6 +271,8 @@ public struct ControlView: View {
             .tip("What subtitles show: only the target language, the original, or both")
             Button { bumpFont(-2) } label: { Text("A−") }.tip("Smaller subtitle text")
             Button { bumpFont(2) } label: { Text("A+") }.tip("Larger subtitle text")
+            Toggle(isOn: $settings.profile.session.speakTranslations) { Image(systemName: "speaker.wave.2") }
+                .toggleStyle(.button).tip("Read translations of other people's speech aloud (best with headphones)")
             Toggle(isOn: $settings.profile.content.showSourceLabel) { Image(systemName: "person.text.rectangle") }
                 .toggleStyle(.button).tip("Show “System” / “Mic” labels in subtitles")
             Button { actions.toggleEditing(); hud.touch() } label: {
@@ -324,6 +330,12 @@ public struct ControlView: View {
                     ForEach(ExportFormat.allCases, id: \.self) { f in Button(f.title) { actions.export(f) } }
                 } label: { Image(systemName: "square.and.arrow.up") }.menuStyle(.borderlessButton).frame(width: 30)
                     .tip("Export this session as Markdown, SRT or JSON")
+                Button { summarize(items) } label: {
+                    if summarizing { ProgressView().controlSize(.small) } else { Image(systemName: "sparkles") }
+                }
+                .disabled(summarizing || items.isEmpty)
+                .tip("Summarise this session on this Mac (summary, decisions, action items) with a local model")
+                .popover(isPresented: $showSummary) { summaryView }
                 Button { store.clear() } label: { Image(systemName: "trash") }.tip("Clear this session's text")
             }
             ScrollViewReader { proxy in
@@ -346,6 +358,40 @@ public struct ControlView: View {
                 .onChange(of: items.last?.fullOriginal.count) { if let l = items.last { proxy.scrollTo(l.id, anchor: .bottom) } }
             }
         }
+    }
+
+    // MARK: Summary
+
+    private func summarize(_ items: [Segment]) {
+        summarizing = true
+        let transcript = items.map { s in
+            let who = s.speaker.map { "\(s.source.label) speaker \($0)" } ?? s.source.label
+            return "\(who): \(s.fullOriginal)" + (s.fullTranslation.isEmpty ? "" : " [\(s.fullTranslation)]")
+        }.joined(separator: "\n")
+        let language = settings.profile.translationSystem.kind == .oneWay ? settings.profile.translationSystem.target : "en"
+        Task {
+            do { summary = try await MeetingSummary.summarize(transcript: transcript, language: language) }
+            catch { summary = "⚠︎ \(error.localizedDescription)" }
+            summarizing = false
+            showSummary = true
+        }
+    }
+
+    private var summaryView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Session summary").font(.headline)
+                Spacer()
+                Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(summary ?? "", forType: .string) } label: {
+                    Image(systemName: "doc.on.doc")
+                }.tip("Copy")
+            }
+            ScrollView {
+                Text(LocalizedStringKey(summary ?? "")).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Text(MeetingSummary.model.map { "Made on this Mac with \($0.name)." } ?? "").font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(14).frame(width: 440, height: 360)
     }
 
     // MARK: Helpers

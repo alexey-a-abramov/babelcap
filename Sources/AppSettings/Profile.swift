@@ -210,7 +210,27 @@ public struct SessionSettings: Codable, Hashable, Sendable {
     public var exportFolder: String?
     public var mixIntoOne = false
     public var dedupeEchoes = true
+    /// Read translations of other people's speech aloud (System stream).
+    public var speakTranslations = false
+    public var speechRate: Double = 0.52
     public init() {}
+
+    enum CodingKeys: String, CodingKey {
+        case autoPauseMinutes, saveHistory, exportFormat, exportFolder, mixIntoOne, dedupeEchoes, speakTranslations, speechRate
+    }
+
+    public init(from d: Decoder) throws {
+        self.init()
+        let c = try d.container(keyedBy: CodingKeys.self)
+        autoPauseMinutes = try c.decodeIfPresent(Int.self, forKey: .autoPauseMinutes) ?? autoPauseMinutes
+        saveHistory = try c.decodeIfPresent(Bool.self, forKey: .saveHistory) ?? saveHistory
+        exportFormat = try c.decodeIfPresent(String.self, forKey: .exportFormat) ?? exportFormat
+        exportFolder = try c.decodeIfPresent(String.self, forKey: .exportFolder)
+        mixIntoOne = try c.decodeIfPresent(Bool.self, forKey: .mixIntoOne) ?? mixIntoOne
+        dedupeEchoes = try c.decodeIfPresent(Bool.self, forKey: .dedupeEchoes) ?? dedupeEchoes
+        speakTranslations = try c.decodeIfPresent(Bool.self, forKey: .speakTranslations) ?? speakTranslations
+        speechRate = try c.decodeIfPresent(Double.self, forKey: .speechRate) ?? speechRate
+    }
 }
 
 public struct Profile: Codable, Hashable, Sendable, Identifiable {

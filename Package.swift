@@ -30,7 +30,7 @@ let package = Package(
         .target(name: "CaptionsCore", dependencies: ["AudioCapture", "SonioxClient", "Transcript", "AppSettings", "ModelHub", "LocalEngines"]),
         .target(name: "SharedUI"),
         .target(name: "Overlay", dependencies: ["Transcript", "AppSettings", "SonioxClient", "SharedUI"]),
-        .target(name: "ControlHUD", dependencies: ["CaptionsCore", "AppSettings", "Transcript", "AudioCapture", "SonioxClient", "SharedUI"]),
+        .target(name: "ControlHUD", dependencies: ["CaptionsCore", "AppSettings", "Transcript", "AudioCapture", "SonioxClient", "SharedUI", "ModelHub"]),
         .target(name: "CatalogUI", dependencies: ["AppSettings", "CaptionsCore", "ModelHub", "SonioxClient", "SharedUI", "LocalEngines", "LocalLLM"]),
         .executableTarget(
             name: "Subveil",
