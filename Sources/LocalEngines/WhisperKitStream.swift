@@ -247,7 +247,7 @@ public actor WhisperKitStream: SpeechStream {
                 do { translated = try await AppleTranslator.shared.translate(text, from: src, to: target) } catch {
                     if !translationWarned {
                         translationWarned = true
-                        continuation.yield(.error(SonioxError(code: 0, message: LocalTranslationHelp.message(source: src, target: target))))
+                        continuation.yield(.error(SonioxError(code: 0, message: await LocalTranslationHelp.explain(source: src, target: target))))
                     }
                 }
             }

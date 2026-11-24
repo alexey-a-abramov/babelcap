@@ -90,7 +90,7 @@ case "test":
             print("      heard: \(r.transcript.prefix(160))")
             if !r.translation.isEmpty { print("      → \(r.targetLanguage ?? ""): \(r.translation.prefix(160))") }
             if let w = r.warning { print("      ⚠︎ \(w)") }
-            if let rtf = r.rtf, r.error == nil {
+            if let rtf = r.rtf, r.error == nil, case .whisperKit? = e.engine {
                 let est = DeviceEstimate.laptops.compactMap { m in DeviceEstimate.rtf(rtf, on: m).map { "\(m.name.replacingOccurrences(of: "MacBook ", with: "")) \(DeviceEstimate.speedText($0))" } }
                 print("      ≈ on laptops: " + est.joined(separator: " · "))
             }

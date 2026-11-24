@@ -202,6 +202,22 @@ public enum BenchmarkRunner {
             return result
         }
 
+        // Local engines: one untimed warm-up pass, so the model is loaded and GPU kernels are compiled before timing
+        // (otherwise the first inference after a load dominates a short clip).
+        if entry.kind == .local {
+            progress?("Warming up \(entry.name)…")
+            let warmStart = Date()
+            if let warm = try? EngineFactory.makeStream(for: entry, config: config, apiKey: apiKey) {
+                let drain = Task { for await _ in warm.events {} }
+                await warm.start()
+                await warm.send(pcm.prefix(min(pcm.count, 32_000 * 3)))
+                await warm.send(Data(count: 32_000))
+                await warm.stop()
+                _ = await drain.value
+            }
+            result.setupSeconds = Date().timeIntervalSince(warmStart)
+        }
+
         let collector = Collector(joinWithSpaces: entry.kind == .local)
         let eventsTask = Task { for await e in stream.events { collector.add(e) } }
 
@@ -219,7 +235,7 @@ public enum BenchmarkRunner {
                           : "Loading the model… \(s) s" + (s > 20 ? " (the first load prepares the model for this Mac and can take a while)" : ""))
             }
         }
-        result.setupSeconds = Date().timeIntervalSince(setupStart)
+        result.setupSeconds += Date().timeIntervalSince(setupStart)
         guard collector.isLive else {
             result.error = collector.errorText ?? "The engine did not start."
             eventsTask.cancel()

@@ -492,7 +492,7 @@ struct ResultView: View {
                 if let f = result.firstTextAfter { GridRow { Text("First words").foregroundStyle(.secondary); Text(String(format: "%.1f s after the audio started", f)) } }
                 GridRow { Text("Start-up").foregroundStyle(.secondary); Text(String(format: "%.1f s (connect / load the model)", result.setupSeconds)) }
             }
-            if let rtf = result.rtf, result.error == nil {
+            if let rtf = result.rtf, result.error == nil, case .whisperKit? = ModelCatalog.entry(result.entryID)?.engine {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Expected on other Macs — rough estimate from GPU size and chip generation").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 3) {

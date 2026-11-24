@@ -181,7 +181,10 @@ public actor AppleSpeechStream: SpeechStream {
     private func warnTranslation(_ target: String) {
         guard !translationWarned else { return }
         translationWarned = true
-        continuation.yield(.error(SonioxError(code: 0, message: LocalTranslationHelp.message(source: language, target: target))))
+        let source = language
+        Task { [continuation] in
+            continuation.yield(.error(SonioxError(code: 0, message: await LocalTranslationHelp.explain(source: source, target: target))))
+        }
     }
 
     private func fail(_ error: Error) {

@@ -35,4 +35,16 @@ public enum LocalTranslationHelp {
     public static func message(source: String, target: String) -> String {
         "Apple Translation \(source.uppercased()) → \(target.uppercased()) is not installed. Add both languages in System Settings → General → Language & Region → Translation Languages."
     }
+
+    /// Precise message: not installed vs not supported at all.
+    @available(macOS 26.0, *)
+    public static func explain(source: String, target: String) async -> String {
+        switch await AppleTranslator.readiness(from: source, to: target) {
+        case .unsupported:
+            let name = { (c: String) in Locale(identifier: "en").localizedString(forLanguageCode: c) ?? c.uppercased() }
+            return "Apple Translation does not support \(name(source)) → \(name(target)). Use Soniox, or Whisper's own translation into English (tiny / base / small / large-v3)."
+        case .needsDownload, .installed:
+            return message(source: source, target: target)
+        }
+    }
 }
