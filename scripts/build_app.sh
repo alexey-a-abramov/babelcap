@@ -27,7 +27,15 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp -R Resources/Benchmark "$APP/Contents/Resources/Benchmark"
 # SwiftPM resource bundles; MLX finds its Metal library (default.metallib) in mlx-swift_Cmlx.bundle here.
 for b in "$P"/*.bundle; do cp -R "$b" "$APP/Contents/Resources/"; done
+# Dynamic frameworks from binary packages (Azure Speech SDK) go into Contents/Frameworks, signed with our identity
+# (hardened runtime only loads libraries signed by the same team).
+mkdir -p "$APP/Contents/Frameworks"
+for f in "$P"/*.framework; do cp -R "$f" "$APP/Contents/Frameworks/"; done
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Subveil"
+for f in "$APP/Contents/Frameworks"/*.framework; do codesign --force --options runtime -s "$IDENTITY" "$f"; done
 
-codesign --force --options runtime --entitlements Resources/Subveil.entitlements -s "$IDENTITY" "$APP"
+ENT=Resources/Subveil.entitlements
+[[ "$IDENTITY" == "-" ]] && ENT=Resources/Subveil-adhoc.entitlements
+codesign --force --options runtime --entitlements "$ENT" -s "$IDENTITY" "$APP"
 codesign --verify --verbose "$APP"
 echo "Built $APP"
