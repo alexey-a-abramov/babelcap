@@ -14,7 +14,7 @@ After finishing a stage: tick the items, update "Deviations from the spec", comm
 | 3. Two sources and translation | 🟡 code done, needs verification |
 | 4. Control panel and customisation | 🟡 code done, needs polish and verification |
 | 5. Reliability | 🟡 partly done (mock-server tests exist) |
-| 6. Distribution | ⬜ not started |
+| 6. Distribution | 🟡 ad-hoc signed pre-release v0.1.0 on GitHub; Developer ID + notarization + Sparkle open |
 
 ## Stage 0 — Skeleton (done)
 
@@ -96,6 +96,8 @@ Needs a real Soniox key and live audio.
 
 ## Stage 6 — Distribution
 
+- [x] GitHub pre-release v0.1.0: ad-hoc signed zip (`scripts/package_release.sh`), install notes incl. Gatekeeper workaround
+
 - [ ] Developer ID signing, hardened runtime (already on), notarization, DMG
 - [ ] Sparkle 2 (FR-23)
 - [x] App icon; [ ] final product name (open question)
@@ -155,6 +157,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-24 — Release v0.1.0 (alpha, ad-hoc signed) published on GitHub.
 
 - 2026-11-24 — Multi-engine support: model catalog window, resumable verified downloads into the app folder, Apple on-device and WhisperKit engines, benchmark clips + CLI.
 
