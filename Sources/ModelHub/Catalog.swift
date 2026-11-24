@@ -16,6 +16,9 @@ public enum TranslatorStyle: String, Hashable, Sendable { case translateGemma, c
 /// Which built-in adapter runs an entry.
 public enum EngineID: Hashable, Sendable {
     case soniox
+    case gladia
+    case speechmatics
+    case openAITranslate
     case appleSpeech
     case whisperKit(folder: String, translates: Bool)
     /// A local MLX language model used as the text translator for on-device engines.
@@ -195,21 +198,21 @@ public enum ModelCatalog {
             realtime: "Yes", runtime: "REST to open a session, then WebSocket",
             pricePerHour: 0.23, priceText: "from €0.16/h + €0.05/h translation (real-time may cost more)",
             keyURL: "https://app.gladia.io", pricingURL: "https://www.gladia.io/pricing",
-            docsURL: "https://docs.gladia.io/chapters/live-stt/getting-started", license: "Proprietary"),
+            docsURL: "https://docs.gladia.io/chapters/live-stt/getting-started", license: "Proprietary", engine: .gladia),
         CatalogEntry(
             id: "speechmatics", name: "Speechmatics Real-time + Translation", vendor: "Speechmatics", kind: .cloud,
             summary: "Enterprise real-time ASR with up to five simultaneous translation targets.",
             outputs: "Transcript + up to 5 translations", languages: "55+", translation: "Yes, add-on ($0.65/h)",
             realtime: "Yes", runtime: "WebSocket", pricePerHour: 1.2, priceText: "$0.30–0.80/h + $0.65/h translation",
             keyURL: "https://portal.speechmatics.com", pricingURL: "https://www.speechmatics.com/pricing",
-            docsURL: "https://docs.speechmatics.com/rt-api-ref", license: "Proprietary"),
+            docsURL: "https://docs.speechmatics.com/rt-api-ref", license: "Proprietary", engine: .speechmatics),
         CatalogEntry(
             id: "openai-translate", name: "OpenAI gpt-realtime-translate", vendor: "OpenAI", kind: .cloud,
             summary: "Speech-to-speech translation with transcript deltas.",
             outputs: "Translated speech + transcript", languages: "70+ in, 13 out", translation: "Yes (the point of the model)",
             realtime: "Yes", runtime: "WebSocket / WebRTC", pricePerHour: 2.04, priceText: "≈ $2.04/h ($0.034/min)",
             keyURL: "https://platform.openai.com/api-keys", pricingURL: "https://platform.openai.com/settings/organization/billing",
-            docsURL: "https://platform.openai.com/docs/guides/realtime", license: "Proprietary"),
+            docsURL: "https://platform.openai.com/docs/guides/realtime", license: "Proprietary", engine: .openAITranslate),
         CatalogEntry(
             id: "gemini-live", name: "Google Gemini Live Translate", vendor: "Google", kind: .cloud,
             summary: "Live speech translation through the Gemini Live API (preview).",

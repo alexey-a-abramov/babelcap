@@ -1,4 +1,5 @@
 import Foundation
+import CloudEngines
 import LocalEngines
 import SonioxClient
 
@@ -12,7 +13,7 @@ public enum EngineFactory {
         if let v = entry.minMacOS, MachineInfo.macOSMajor < v { return "Needs macOS \(v) or newer." }
         if let r = entry.minRAMGB, MachineInfo.ramGB < r { return "Needs at least \(r) GB of memory (this Mac has \(MachineInfo.ramGB) GB)." }
         switch engine {
-        case .soniox: if (apiKey ?? "").isEmpty { return "Add your API key first." }
+        case .soniox, .gladia, .speechmatics, .openAITranslate: if (apiKey ?? "").isEmpty { return "Add your API key first." }
         case .appleSpeech: break
         case .whisperKit, .mlxTranslator: if !ModelDownloads.shared.isInstalled(entry.id) { return "Download the model first." }
         }
@@ -28,6 +29,12 @@ public enum EngineFactory {
         switch entry.engine {
         case .soniox?:
             return SonioxSession(apiKey: apiKey ?? "", config: config, endpoint: endpoint)
+        case .gladia?:
+            return GladiaStream(apiKey: apiKey ?? "", config: config)
+        case .speechmatics?:
+            return SpeechmaticsStream(apiKey: apiKey ?? "", config: config)
+        case .openAITranslate?:
+            return OpenAITranslateStream(apiKey: apiKey ?? "", config: config)
         case .appleSpeech?:
             guard #available(macOS 26.0, *) else { throw LocalEngineError.needsNewerMacOS(26) }
             return AppleSpeechStream(config: config, translator: translator ?? AppleTextTranslator())

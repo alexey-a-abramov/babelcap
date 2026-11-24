@@ -26,7 +26,8 @@ let package = Package(
             .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
             .product(name: "Tokenizers", package: "swift-transformers"),
         ]),
-        .target(name: "ModelHub", dependencies: ["SonioxClient", "LocalEngines", "LocalLLM"]),
+        .target(name: "CloudEngines", dependencies: ["SonioxClient"]),
+        .target(name: "ModelHub", dependencies: ["SonioxClient", "LocalEngines", "LocalLLM", "CloudEngines"]),
         .target(name: "CaptionsCore", dependencies: ["AudioCapture", "SonioxClient", "Transcript", "AppSettings", "ModelHub", "LocalEngines"]),
         .target(name: "SharedUI"),
         .target(name: "Overlay", dependencies: ["Transcript", "AppSettings", "SonioxClient", "SharedUI"]),
@@ -40,7 +41,7 @@ let package = Package(
         .testTarget(name: "TranscriptTests", dependencies: ["Transcript", "SonioxClient"]),
         .testTarget(
             name: "SonioxClientTests",
-            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript", "ControlHUD", "Overlay", "SharedUI", "ModelHub", "LocalEngines", "CatalogUI"]
+            dependencies: ["SonioxClient", "AudioCapture", "AppSettings", "CaptionsCore", "Transcript", "ControlHUD", "Overlay", "SharedUI", "ModelHub", "LocalEngines", "CatalogUI", "CloudEngines"]
         ),
     ]
 )

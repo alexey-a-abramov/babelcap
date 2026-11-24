@@ -111,7 +111,10 @@ Needs a real Soniox key and live audio.
 - [x] All 7 WhisperKit models downloaded and verified on the dev Mac (≈ 7.7 GB)
 - [x] Benchmark clips (EN/RU/DE/FR/ES/IT/HE, macOS voices), WER, speed (× real time) / latency, verdict; `subveil-bench` CLI; Benchmark tab
 - [x] "Models & Providers" window (browse / compare / benchmark), per-provider API keys in the Keychain
-- [ ] Cloud adapters: Gladia, Speechmatics, OpenAI realtime-translate, Gemini Live, Azure (SDK), ElevenLabs/AssemblyAI/Deepgram (+ a translation step)
+- [~] Cloud adapters Gladia, Speechmatics, OpenAI realtime-translate — built from the docs and tested against mock servers; **not yet tried with real keys**
+- [ ] Cloud adapters: Gemini Live, Azure (SDK), ElevenLabs/AssemblyAI/Deepgram (+ a translation step)
+- [x] Onboarding: choose cloud (Soniox key) or offline (Whisper turbo + TranslateGemma download)
+- [x] Local meeting summary (Qwen3 4B / EuroLLM via MLX); spoken translations played in-process
 - [x] Local translation with MLX LLMs (TranslateGemma 4B/12B, Qwen3 4B, EuroLLM 9B) via mlx-swift-lm; translator setting (Auto / Apple / Whisper / model)
 - [x] Whisper LocalAgreement-2 streaming: words committed while speaking, sentence-by-sentence translation
 - [x] Speaker colours (diarization) in subtitles and history
@@ -160,6 +163,8 @@ Needs a real Soniox key and live audio.
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)
 
 ## Log
+
+- 2026-11-24 — Gladia, Speechmatics and OpenAI realtime-translate adapters (mock-tested); onboarding engine choice; local meeting summary; spoken translations.
 
 - 2026-11-24 — Fully local pipeline: Whisper (LocalAgreement streaming) + TranslateGemma via MLX, RU/HE/EN at 11–14× real time; app now built with xcodebuild (Metal shaders); speaker colours.
 

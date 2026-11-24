@@ -42,12 +42,15 @@ bottom and old ones fade away. Each session starts from a clean slate.
 
 Open **Models & Providers** (menu bar, the control panel's gear, or Settings) — a full catalog of speech engines:
 
-- **Cloud** — Soniox is built in (the most accurate and cheapest, ~$0.12–0.18/h, your own key). Gladia, Speechmatics,
-  OpenAI, Gemini, Azure, ElevenLabs, AssemblyAI and Deepgram are listed with prices, where to get a key and where to top
-  up; their adapters are coming.
-- **On this Mac, free and offline** — Apple's built-in on-device speech (macOS 26) and OpenAI Whisper via WhisperKit
-  (tiny → large-v3). Each shows its download size, memory needs and whether your Mac qualifies; downloads resume after a
-  pause or restart, are checked against SHA-256, and live only in Subveil's own folder.
+- **Cloud** — Soniox (the most accurate and cheapest, ~$0.12–0.18/h), Gladia, Speechmatics and OpenAI
+  realtime-translate, each with your own key. Gemini, Azure, ElevenLabs, AssemblyAI and Deepgram are listed with prices,
+  where to get a key and where to top up.
+- **On this Mac, free and offline** — OpenAI Whisper via WhisperKit (tiny → large-v3) or Apple's on-device speech
+  (macOS 26) for recognition, and **TranslateGemma / Qwen3 / EuroLLM via MLX** for translation into any of 55 languages
+  (Russian and Hebrew included). Words appear while people speak; each sentence is translated as soon as it ends.
+  Downloads resume after a pause or restart, are checked against SHA-256, and live only in Subveil's own folder.
+- **Meeting summary** — key points, decisions and action items written on your Mac by a local model.
+- **Speaker colours** and optional **spoken translation** (read aloud, never re-captured).
 - **Test before you switch** — run a short clip (7 languages) through any engine: accuracy (word error rate), how many
   times faster than real time it runs, and a plain verdict on whether it keeps up with live captions. The Benchmark tab
   compares every ready engine side by side.
