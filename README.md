@@ -12,7 +12,16 @@ Live translated subtitles on top of everything on your Mac — videos, calls, me
   <br><sub>A Russian-dubbed video, translated into English live (shown here in “original + translation” mode).</sub>
 </p>
 
-> **Early alpha.** Works end to end, still rough. Progress and known gaps: [docs/TODO.md](docs/TODO.md).
+> **Early alpha, now open source.** Works end to end, still rough. Progress and known gaps: [docs/TODO.md](docs/TODO.md).
+
+## The story
+
+Subveil was dreamed up and mostly built in one day — at the hackathon for the launch of **Claude Fable 5.2**
+in **Tel Aviv on 23 November 2026** — by [Alexey Abramov](https://github.com/alexey-a-abramov), pairing with Claude Code.
+It is now open to everyone.
+
+**Where it stands:** the main paths work well in daily use. Not every engine and not every combination of engine,
+translator and language has been tested yet — expect rough edges, especially with the newer cloud adapters.
 
 ## What it's for
 
@@ -74,7 +83,7 @@ scripts/install_app.sh      # builds, signs, installs ~/Applications/Subveil.app
 
 ## Privacy
 
-Audio goes only to Soniox over TLS and is never saved. The key stays in the Keychain. No transcript history is kept
+Audio goes only to the provider you pick, over TLS — or nowhere at all with the offline engines — and is never saved. The key stays in the Keychain. No transcript history is kept
 unless you turn it on. Recording other people may require their consent.
 
 ## For developers
@@ -83,6 +92,14 @@ unless you turn it on. Recording other people may require their consent.
 `swift run subveil-bench list | download <id> | test <id>|ready --clip ru --target en` downloads and benchmarks engines from the terminal.
 Architecture and conventions: [AGENTS.md](AGENTS.md).
 
-## License
+## Contributing
 
-[MIT](LICENSE) © 2026 Alexey Abramov · Not affiliated with Soniox.
+Contributions are very welcome — bug reports, test results with engines and languages we haven't tried,
+new adapters, UI polish. Open an [issue](https://github.com/alexey-a-abramov/subveil/issues) or a pull request;
+[docs/TODO.md](docs/TODO.md) lists what's open and [AGENTS.md](AGENTS.md) explains how the code is laid out.
+
+## Author and license
+
+Created by **Alexey Abramov** ([@alexey-a-abramov](https://github.com/alexey-a-abramov)).
+[MIT](LICENSE) © 2026 Alexey Abramov — keep the copyright notice in copies and derived works.
+Not affiliated with Soniox, OpenAI, Google, Microsoft or any other provider listed here.
