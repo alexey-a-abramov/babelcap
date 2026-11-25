@@ -7,7 +7,7 @@ import Transcript
 
 /// Reads finished translations of other people's speech (System stream) aloud — handy with headphones.
 ///
-/// Speech is rendered to buffers and played by Subveil's own audio engine, so it comes from this process — which the
+/// Speech is rendered to buffers and played by Babelcap's own audio engine, so it comes from this process — which the
 /// system-audio tap excludes — and is never captured and transcribed again.
 @MainActor
 public final class TranslationVoice: NSObject {

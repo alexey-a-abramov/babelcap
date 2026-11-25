@@ -254,7 +254,7 @@ private struct EntryDetail: View {
                 fact("Real time", entry.realtime)
                 fact("Runs on", entry.runtime)
                 if let p = entry.priceText { fact(entry.kind == .cloud ? "Price" : "Cost", p) }
-                if entry.needsDownload { fact("Download", entry.downloadBytes.humanBytes + " · stored in Subveil's own folder") }
+                if entry.needsDownload { fact("Download", entry.downloadBytes.humanBytes + " · stored in Babelcap's own folder") }
                 if let r = entry.minRAMGB { fact("Memory", "\(r) GB minimum" + (entry.recommendedRAMGB.map { " · \($0) GB recommended" } ?? "")) }
                 fact("Licence", entry.license + (entry.licenseWarning.map { " — \($0)" } ?? ""))
             }
@@ -394,7 +394,7 @@ private struct EntryDetail: View {
                         .foregroundStyle(.secondary)
                 }
                 if !entry.isReady, st.phase != .installed {
-                    Text("Subveil cannot run this model yet (its adapter is planned). Downloading now only saves the weights for later.")
+                    Text("Babelcap cannot run this model yet (its adapter is planned). Downloading now only saves the weights for later.")
                         .font(.caption).foregroundStyle(.orange)
                 }
                 HStack {

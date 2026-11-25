@@ -65,7 +65,7 @@ final class MicSelectionTests: XCTestCase {
 final class KeychainStoreTests: XCTestCase {
     func testRoundTripAndMissing() {
         Trace.fileEnabled = false
-        let kc = KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)")
+        let kc = KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)")
         defer { kc.delete() }
         XCTAssertEqual(kc.read(), .notFound)
         XCTAssertTrue(kc.save("secret-1"))
@@ -90,9 +90,9 @@ final class EngineIntegrationTests: XCTestCase {
         Trace.fileEnabled = false
         server = MockSonioxServer()
         try server.start()
-        dir = FileManager.default.temporaryDirectory.appendingPathComponent("subveil-tests-\(UUID().uuidString)")
+        dir = FileManager.default.temporaryDirectory.appendingPathComponent("babelcap-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        keychain = KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)")
+        keychain = KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)")
         settings = SettingsStore(directory: dir, keychain: keychain)
         settings.profile.sources = .system
         settings.profile.session.saveHistory = false // never write into the real history folder

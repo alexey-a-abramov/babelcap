@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class SettingsMigrationTests: XCTestCase {
     private func tempDir() throws -> URL {
-        let d = FileManager.default.temporaryDirectory.appendingPathComponent("subveil-settings-\(UUID().uuidString)")
+        let d = FileManager.default.temporaryDirectory.appendingPathComponent("babelcap-settings-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
         return d
     }
@@ -12,7 +12,7 @@ final class SettingsMigrationTests: XCTestCase {
     func testFreshInstallTranslatesEverythingToEnglishWithoutLabels() throws {
         let dir = try tempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let s = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        let s = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)"))
         let p = s.profile
         XCTAssertEqual(p.translationSystem, TranslationSettings(kind: .oneWay, target: "en"))
         XCTAssertEqual(p.translationMic, TranslationSettings(kind: .oneWay, target: "en"))
@@ -25,7 +25,7 @@ final class SettingsMigrationTests: XCTestCase {
     func testOldSettingsFileIsMigratedAndStillDecodes() async throws {
         let dir = try tempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let kc = KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)")
+        let kc = KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)")
 
         // Write a file the way v1 did: no schemaVersion/showInDock, no layout.clickThrough, translation off, labels on.
         let seed = SettingsStore(directory: dir, keychain: kc)
@@ -107,7 +107,7 @@ final class HotKeyBindingTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hk-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let s = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        let s = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)"))
         XCTAssertEqual(s.binding(.startStop).display, "⌥⌘Space")
         XCTAssertFalse(HotKeyBinding(keyCode: 0, modifiers: 0x200, key: "A").isUsable, "Shift alone would steal typing")
         s.hotkeys[HotKeyAction.clear.rawValue] = HotKeyBinding(keyCode: 40, modifiers: 0x1000 | 0x100, key: "K")

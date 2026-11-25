@@ -17,13 +17,13 @@ copy it, or create a new one.
 Gladia is a prepaid wallet: top up in **Settings → Billing** ([link](https://app.gladia.io/settings/billing)).
 You can turn on **auto top-up** there (a threshold and an amount).
 
-## 4. Paste it into Subveil
+## 4. Paste it into Babelcap
 
 **Models & Providers → Gladia → API key** → paste → **Save**. Then pick Gladia as the engine.
 
 ## Good to know
 
-- Self-serve accounts get up to 30 parallel live sessions; one session lasts at most 3 hours (Subveil renews it).
+- Self-serve accounts get up to 30 parallel live sessions; one session lasts at most 3 hours (Babelcap renews it).
 - On self-serve plans Gladia may use your audio for model training by default — you can opt out in your account.
 
 **Official docs:** [Getting started](https://docs.gladia.io/chapters/introduction/getting-started) ·

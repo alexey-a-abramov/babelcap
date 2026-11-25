@@ -1,7 +1,7 @@
 # ElevenLabs API key (Scribe)
 
 ElevenLabs Scribe v3 Live: low-latency transcription in the cloud, $0.22/h. Scribe does not translate —
-Subveil translates each line on your Mac with the translator you pick (TranslateGemma or Apple Translation).
+Babelcap translates each line on your Mac with the translator you pick (TranslateGemma or Apple Translation).
 
 ## 1. Create an account
 
@@ -11,7 +11,7 @@ realtime transcription per month.
 ## 2. Create a key
 
 1. Open **API keys** in the dashboard ([link](https://elevenlabs.io/app/settings/api-keys)) → **Create API key**.
-2. Name it `Subveil`. If you restrict the key's permissions, keep Speech to Text allowed. Leave the IP allowlist empty unless you know your IP is fixed.
+2. Name it `Babelcap`. If you restrict the key's permissions, keep Speech to Text allowed. Leave the IP allowlist empty unless you know your IP is fixed.
 3. Copy the key.
 
 ## 3. Paying (when the free hours run out)
@@ -19,7 +19,7 @@ realtime transcription per month.
 Pick an API plan at [elevenlabs.io/pricing/api](https://elevenlabs.io/pricing/api) (subscribe in [your subscription page](https://elevenlabs.io/app/subscription/api)).
 Self-serve plans can also buy pay-as-you-go credits.
 
-## 4. Paste it into Subveil
+## 4. Paste it into Babelcap
 
 **Models & Providers → ElevenLabs Scribe v3 Live → API key** → paste → **Save**. Then pick it as the engine and
 choose a translator (download TranslateGemma 4B in the same window if you haven't).

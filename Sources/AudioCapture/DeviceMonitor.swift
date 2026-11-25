@@ -10,7 +10,7 @@ public final class DeviceMonitor: @unchecked Sendable {
     private let handler: @Sendable (Event) -> Void
     private var listeners: [(AudioObjectPropertyAddress, AudioObjectPropertyListenerBlock)] = []
     private var observers: [NSObjectProtocol] = []
-    private let queue = DispatchQueue(label: "subveil.devicemonitor")
+    private let queue = DispatchQueue(label: "babelcap.devicemonitor")
     private var debounce: [String: DispatchWorkItem] = [:]
 
     public init(handler: @escaping @Sendable (Event) -> Void) { self.handler = handler }

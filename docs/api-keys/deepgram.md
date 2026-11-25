@@ -13,14 +13,14 @@ that does not expire, no card required.
 
 1. In the [Deepgram Console](https://console.deepgram.com) pick your project in the **Projects** dropdown (top left).
 2. **Settings → API Keys → Create a New API Key**.
-3. Name it `Subveil`, role **Member** is enough, set an expiration if you like → **Create Key**.
+3. Name it `Babelcap`, role **Member** is enough, set an expiration if you like → **Create Key**.
 4. **Copy it now** — Deepgram won't show it again.
 
 ## 3. Paying
 
 When the credit runs out, requests fail with `402` unless a card is on file. Add one or buy a plan in the Console's billing section.
 
-## 4. Paste it into Subveil
+## 4. Paste it into Babelcap
 
 **Models & Providers → Deepgram Nova-3 → API key** → paste → **Save**.
 

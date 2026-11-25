@@ -55,10 +55,10 @@ public final class ControlPanelController {
             host.topAnchor.constraint(equalTo: fx.topAnchor), host.bottomAnchor.constraint(equalTo: fx.bottomAnchor),
         ])
 
-        if !panel.setFrameUsingName("SubveilHUD"), let vis = NSScreen.main?.visibleFrame {
+        if !panel.setFrameUsingName("BabelcapHUD"), let vis = NSScreen.main?.visibleFrame {
             panel.setFrameTopLeftPoint(NSPoint(x: vis.midX - Self.normal.width / 2, y: vis.maxY - 40))
         }
-        panel.setFrameAutosaveName("SubveilHUD")
+        panel.setFrameAutosaveName("BabelcapHUD")
         applySize(animated: false)
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.keepOnScreen() }

@@ -64,7 +64,7 @@ struct OnboardingView: View {
 
     private var engineStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("How should Subveil listen?").font(.title2.bold())
+            Text("How should Babelcap listen?").font(.title2.bold())
             choice(.cloud, icon: "cloud.fill", title: "Cloud — Soniox",
                    text: "The most accurate, words appear instantly, 60+ languages with translation. About $0.12–0.18 per hour; you need your own Soniox API key.")
             choice(.local, icon: "desktopcomputer", title: "On this Mac — free and offline",
@@ -96,7 +96,7 @@ struct OnboardingView: View {
     private var localStep: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Download the offline models").font(.title2.bold())
-            Text("Stored only in Subveil's own folder. Downloads continue in the background and resume after a pause or restart — you can go on with the setup meanwhile.")
+            Text("Stored only in Babelcap's own folder. Downloads continue in the background and resume after a pause or restart — you can go on with the setup meanwhile.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             ForEach(kitEntries) { e in
                 let st = downloads.status(e.id)
@@ -127,7 +127,7 @@ struct OnboardingView: View {
     private var keyStep: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Soniox API key").font(.title2.bold())
-            Text("Subveil sends audio only to Soniox, over TLS. Paste your own key — it is stored in the macOS Keychain.")
+            Text("Babelcap sends audio only to Soniox, over TLS. Paste your own key — it is stored in the macOS Keychain.")
                 .foregroundStyle(.secondary)
             SecureField("Soniox API key", text: $key).textFieldStyle(.roundedBorder)
             HStack {

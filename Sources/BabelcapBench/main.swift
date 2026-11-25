@@ -3,26 +3,28 @@ import LocalEngines
 import ModelHub
 import SonioxClient
 
-// subveil-bench — download catalog models and test them on the bundled clips, from the terminal.
+// babelcap-bench — download catalog models and test them on the bundled clips, from the terminal.
 //
-//   swift run subveil-bench list
-//   swift run subveil-bench download <id> [<id> …]
-//   swift run subveil-bench test <id>|ready [--clip en|ru|…|all] [--target en]
+//   swift run babelcap-bench list
+//   swift run babelcap-bench download <id> [<id> …]
+//   swift run babelcap-bench test <id>|ready [--clip en|ru|…|all] [--target en]
 //
-// Soniox key: $SONIOX_API_KEY or ~/.config/subveil/soniox_api_key. Models go to the app's own folder.
+// Soniox key: $SONIOX_API_KEY or ~/.config/babelcap/soniox_api_key. Models go to the app's own folder.
+
+LegacyMigration.run()
 
 func usage() -> Never {
     print("""
-    usage: subveil-bench list
-           subveil-bench download <id> [<id> …]
-           subveil-bench test <id>|ready [--clip <id>|all] [--target <lang>]
+    usage: babelcap-bench list
+           babelcap-bench download <id> [<id> …]
+           babelcap-bench test <id>|ready [--clip <id>|all] [--target <lang>]
     """)
     exit(2)
 }
 
 func sonioxKey() -> String? {
     if let k = ProcessInfo.processInfo.environment["SONIOX_API_KEY"], !k.isEmpty { return k }
-    let f = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/subveil/soniox_api_key")
+    let f = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/babelcap/soniox_api_key")
     return (try? String(contentsOf: f, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
@@ -30,7 +32,7 @@ func pad(_ s: String, _ n: Int) -> String { s.count >= n ? String(s.prefix(n)) :
 
 let args = Array(CommandLine.arguments.dropFirst())
 guard let cmd = args.first else { usage() }
-Trace.fileEnabled = ProcessInfo.processInfo.environment["SUBVEIL_TRACE"] != nil
+Trace.fileEnabled = ProcessInfo.processInfo.environment["BABELCAP_TRACE"] != nil
 
 switch cmd {
 case "list":
@@ -102,7 +104,7 @@ case "test":
     }
 
 case "translate":
-    // subveil-bench translate <translator-id> <from> <to> "text"
+    // babelcap-bench translate <translator-id> <from> <to> "text"
     guard args.count >= 5, let e = ModelCatalog.entry(args[1]), let tr = TranslatorChoice.translator(for: e) else { usage() }
     let text = args[4...].joined(separator: " ")
     let t0 = Date()
@@ -114,7 +116,7 @@ case "translate":
     } catch { print("error: \(error)") }
 
 case "summarize":
-    // subveil-bench summarize <lang> — summarises a short built-in meeting transcript with the local model.
+    // babelcap-bench summarize <lang> — summarises a short built-in meeting transcript with the local model.
     let lang = args.count > 1 ? args[1] : "en"
     let transcript = """
     Them speaker 1: Good morning everyone. Today we review the release plan for next week.
@@ -131,7 +133,7 @@ case "summarize":
     } catch { print("error: \(error.localizedDescription)") }
 
 case "raw":
-    // Diagnostics: one direct WhisperKit call on a clip — subveil-bench raw <model-id> <clip> [transcribe|translate] [lang|auto]
+    // Diagnostics: one direct WhisperKit call on a clip — babelcap-bench raw <model-id> <clip> [transcribe|translate] [lang|auto]
     guard args.count >= 3, let e = ModelCatalog.entry(args[1]), let c = BenchmarkClips.all().first(where: { $0.id == args[2] }) else { usage() }
     let task = args.count > 3 ? args[3] : "transcribe"
     let lang: String? = args.count > 4 ? (args[4] == "auto" ? nil : args[4]) : c.language

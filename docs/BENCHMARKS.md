@@ -1,12 +1,12 @@
 # Benchmarks
 
-Measured with `subveil-bench` (release build) on **MacBook Pro, Apple M5 Max, 40-core GPU, 48 GB**, macOS 26.6,
+Measured with `babelcap-bench` (release build) on **MacBook Pro, Apple M5 Max, 40-core GPU, 48 GB**, macOS 26.6,
 2026-11-24. Clips: ~8–10 s scripted meeting intro read by macOS voices (`Resources/Benchmark`). Local models run on
 the GPU, after one untimed warm-up pass. Re-run with:
 
 ```bash
-swift build -c release --product subveil-bench
-$(swift build -c release --show-bin-path)/subveil-bench test ready --clip ru --target en
+swift build -c release --product babelcap-bench
+$(swift build -c release --show-bin-path)/babelcap-bench test ready --clip ru --target en
 ```
 
 **Speed** = audio duration ÷ processing time, including the translation step when the engine performs one.
@@ -74,4 +74,4 @@ for the languages it supports.
 ## Load time
 
 First load of a Whisper model on the **Neural Engine** compiles it for the Mac and took **315 s** for large-v3 turbo;
-on the **GPU** loads take **2–4 s**. Subveil therefore runs Whisper on the GPU.
+on the **GPU** loads take **2–4 s**. Babelcap therefore runs Whisper on the GPU.

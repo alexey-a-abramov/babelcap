@@ -13,7 +13,7 @@ public enum MeetingSummary {
     @MainActor
     public static func summarize(transcript: String, language: String) async throws -> String {
         guard let e = model else {
-            throw NSError(domain: "Subveil", code: 1, userInfo: [NSLocalizedDescriptionKey:
+            throw NSError(domain: "Babelcap", code: 1, userInfo: [NSLocalizedDescriptionKey:
                 "Download Qwen3 4B Instruct in Models & Providers to summarize meetings on this Mac."])
         }
         let folder = ModelStorage.folder(for: e.id).appendingPathComponent("model")

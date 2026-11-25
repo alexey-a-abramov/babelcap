@@ -14,7 +14,7 @@ import Transcript
 final class AppContext {
     static let shared = AppContext()
 
-    let settings = SettingsStore()
+    let settings: SettingsStore
     let store = TranscriptStore()
     let engine: CaptionsEngine
     let overlay: OverlayController
@@ -24,6 +24,8 @@ final class AppContext {
     private var booted = false
 
     private init() {
+        LegacyMigration.run()   // before anything reads settings, models or preferences
+        settings = SettingsStore()
         engine = CaptionsEngine(settings: settings, store: store)
         overlay = OverlayController(store: store, settings: settings)
     }
@@ -222,7 +224,7 @@ final class AppContext {
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         w.setContentSize(NSSize(width: 1240, height: 800))
         w.isReleasedWhenClosed = false
-        w.setFrameAutosaveName("SubveilModelCatalog")
+        w.setFrameAutosaveName("BabelcapModelCatalog")
         w.center()
         catalogWindow = w
         w.makeKeyAndOrderFront(nil)
@@ -234,7 +236,7 @@ final class AppContext {
             self?.onboardingWindow?.close(); self?.onboardingWindow = nil
         }
         let w = NSWindow(contentViewController: NSHostingController(rootView: view))
-        w.title = "Welcome to Subveil"
+        w.title = "Welcome to Babelcap"
         w.styleMask = [.titled, .closable]
         w.center()
         onboardingWindow = w

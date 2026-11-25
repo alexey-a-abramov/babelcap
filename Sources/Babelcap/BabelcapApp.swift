@@ -3,7 +3,7 @@ import CaptionsCore
 import SwiftUI
 
 @main
-struct SubveilApp: App {
+struct BabelcapApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     private let ctx = AppContext.shared
 
@@ -65,6 +65,6 @@ struct MenuContent: View {
         Button("Welcome & permissions…") { ctx.showOnboarding() }
         Button("Settings…") { ctx.openSettings() }.keyboardShortcut(",")
         Divider()
-        Button("Quit Subveil") { ctx.quit() }.keyboardShortcut("q")
+        Button("Quit Babelcap") { ctx.quit() }.keyboardShortcut("q")
     }
 }

@@ -21,7 +21,7 @@ public actor SonioxSession {
     private let endpoint: URL
     private let urlSession = URLSession(configuration: .default)
     private let maxBufferChunks: Int
-    private let log = Logger(subsystem: "app.subveil", category: "SonioxSession")
+    private let log = Logger(subsystem: "app.babelcap", category: "SonioxSession")
 
     private var task: URLSessionWebSocketTask?
     private var runTask: Task<Void, Never>?

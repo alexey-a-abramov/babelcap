@@ -90,7 +90,7 @@ public final class CaptionsEngine {
     @ObservationIgnored private var zeroSince: [SourceKind: Date] = [:]
     @ObservationIgnored private var reconciling = false
     @ObservationIgnored private var reconcileAgain = false
-    @ObservationIgnored private let log = Logger(subsystem: "app.subveil", category: "Engine")
+    @ObservationIgnored private let log = Logger(subsystem: "app.babelcap", category: "Engine")
 
     public init(settings: SettingsStore, store: TranscriptStore) {
         self.settings = settings
@@ -118,7 +118,7 @@ public final class CaptionsEngine {
         let entry = provider
         apiKey = ""
         if entry.needsAPIKey {
-            // Off the main thread: macOS may show a "Subveil wants to use your confidential information" dialog here.
+            // Off the main thread: macOS may show a "Babelcap wants to use your confidential information" dialog here.
             let keychain = entry.id == "soniox" ? settings.keychain : KeychainStore.forProvider(entry.id)
             let keyResult = await Task.detached { keychain.read() }.value
             guard runState == .idle else { return }

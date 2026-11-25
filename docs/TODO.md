@@ -1,6 +1,6 @@
-# Subveil — plan and TODO
+# Babelcap — plan and TODO
 
-Updated: 2026-11-24. Legend: `[x]` done and verified · `[~]` written, **not verified on real hardware yet** · `[ ]` not done.
+Updated: 2026-11-25. Legend: `[x]` done and verified · `[~]` written, **not verified on real hardware yet** · `[ ]` not done.
 Each stage can be handed to a separate agent. Stages are ordered from the riskiest to the least risky.
 After finishing a stage: tick the items, update "Deviations from the spec", commit.
 
@@ -20,7 +20,7 @@ After finishing a stage: tick the items, update "Deviations from the spec", comm
 
 - [x] SwiftPM package, 8 modules, Swift 6, macOS 14.4+, arm64
 - [x] Unit tests: `TokenAssembler` (final/draft, speaker change, `<end>`, lagging translation), Soniox config/response models, echo deduper, exporters, settings migration
-- [x] `scripts/build_app.sh` / `scripts/install_app.sh` → signed `Subveil.app` (Info.plist, entitlements, hardened runtime, app icon)
+- [x] `scripts/build_app.sh` / `scripts/install_app.sh` → signed `Babelcap.app` (Info.plist, entitlements, hardened runtime, app icon)
 - [x] App launches, control panel and subtitle overlay render (checked with screenshots)
 
 ## Stage 1 — Spike: de-risk on real hardware 🟡
@@ -87,7 +87,7 @@ Needs a real Soniox key and live audio.
 - [x] Mic defaults to the built-in microphone (never an HDMI/dock input that macOS makes the default); "follow the macOS default input" and specific devices are opt-in; an unplugged chosen mic falls back to built-in
 - [~] Device changes rebuild only what is affected: output change (HDMI, AirPods) → system tap only (mic only if voice processing is on); default-input change → default mic; chosen mic vanished/returned → mic; sleep/wake → everything. Sessions are kept (test simulates HDMI). Verify with a real HDMI display
 - [~] Auto-pause on silence + minutes and cost counter (FR-18)
-- [~] Export MD/SRT/JSON (FR-19); optional history in `~/Library/Application Support/Subveil/History` — **off by default, every session starts clean** (owner decision)
+- [~] Export MD/SRT/JSON (FR-19); optional history in `~/Library/Application Support/Babelcap/History` — **off by default, every session starts clean** (owner decision)
 - [x] Mock WebSocket server + tests for 401, 429, reconnect, replay (see "Diagnostics and tests")
 - [ ] Mock-server tests for 408 / 413
 - [ ] WAV fixtures for `Resampler` / `AudioPump` tests
@@ -109,7 +109,7 @@ Needs a real Soniox key and live audio.
 - [x] Catalog of 23 engines (spec "Real-Time Transcription + Translation: Model Catalog", Nov 2026): price/hour, key + top-up links, languages, translation, size, RAM, licence
 - [x] Resumable downloads (HTTP Range, survives restarts), SHA-256 verification, disk-space check, README + manifest per model, delete
 - [x] All 7 WhisperKit models downloaded and verified on the dev Mac (≈ 7.7 GB)
-- [x] Benchmark clips (EN/RU/DE/FR/ES/IT/HE, macOS voices), WER, speed (× real time) / latency, verdict; `subveil-bench` CLI; Benchmark tab
+- [x] Benchmark clips (EN/RU/DE/FR/ES/IT/HE, macOS voices), WER, speed (× real time) / latency, verdict; `babelcap-bench` CLI; Benchmark tab
 - [x] "Models & Providers" window (browse / compare / benchmark), per-provider API keys in the Keychain
 - [~] Cloud adapters Gladia, Speechmatics, OpenAI realtime-translate — built from the docs and tested against mock servers; **not yet tried with real keys**
 - [~] Cloud adapters Gemini Live Translate (WebSocket, reconnect on `goAway`), ElevenLabs Scribe v3 realtime (+ the local translator),
@@ -141,7 +141,7 @@ Needs a real Soniox key and live audio.
 9. Defaults differ from the spec: everything is translated to English out of the box, the Dock icon is shown (setting), "System/Mic" labels are off, the subtitle panel is movable (not click-through) by default.
 10. **Azure** goes through Microsoft's Speech SDK (`speech-sdk-spm`, a binary framework embedded in `Contents/Frameworks`),
     not a hand-written WebSocket client: the Azure speech-translation WebSocket protocol is not documented.
-    Ad-hoc builds sign the app with `Resources/Subveil-adhoc.entitlements` (adds `disable-library-validation`), because an
+    Ad-hoc builds sign the app with `Resources/Babelcap-adhoc.entitlements` (adds `disable-library-validation`), because an
     ad-hoc app has no Team ID and dyld would refuse the Microsoft-signed framework.
 
 ## Open product questions (from the spec)
@@ -153,18 +153,18 @@ Needs a real Soniox key and live audio.
 - [ ] First-run language pairs and profiles (now: Default (→ English), Call RU↔EN, Meetup HE→EN, Video EN→RU)
 - [x] Keep history by default? **No** — each session starts from zero; saving is opt-in
 - [ ] Auto-pause: after how many minutes of silence (now: 5)
-- [ ] Final name (Subveil is a working title; "Live Captions" is taken by a macOS feature)
+- [x] Final name: **Babelcap** (25 Nov 2026; the working title Subveil was already taken). Old data — settings, models, Keychain items, window frames — is migrated on first launch (`LegacyMigration`, `KeychainStore.legacyService`)
 - [ ] Translation voice-over (Soniox TTS) and LLM meeting summaries — wanted later?
 
 ## Diagnostics and tests
 
-- Trace log: `~/Library/Logs/Subveil/trace.log` (also `log stream --predicate 'subsystem == "app.subveil"'`). It records states, codes, counters and levels — **never the API key or transcript text**. Follow it with `tail -f ~/Library/Logs/Subveil/trace.log`.
+- Trace log: `~/Library/Logs/Babelcap/trace.log` (also `log stream --predicate 'subsystem == "app.babelcap"'`). It records states, codes, counters and levels — **never the API key or transcript text**. Follow it with `tail -f ~/Library/Logs/Babelcap/trace.log`.
 - Automated tests (`swift test`, 63 tests, incl. off-screen HUD layout checks): token assembly; Soniox models; `SonioxSession` against a local mock WebSocket server (Bearer header, config without `api_key`, 401 without reconnect, 429 backoff, reconnect + replay + timestamp offset); the whole engine with a fake capture (start, audio flow, transcript, pause/resume, translation change without losing history, 401, missing key); Keychain (isolated service name); settings defaults and migration.
 - [ ] UI / onboarding tests (XCUITest or snapshots); `SystemAudioTap` / `MicCapture` tests on hardware (not possible in CI)
 
 ## Repository / README
 
-- [x] Public repository https://github.com/alexey-a-abramov/subveil, README in English, MIT license
+- [x] Public repository https://github.com/alexey-a-abramov/babelcap, README in English, MIT license
 - [x] README screenshot: video with live translation (`docs/images/demo-video-translation.jpg`)
 - [ ] More screenshots: System/Mic/Both switching in the HUD, expanded HUD, appearance settings, target-language-only mode
 - [ ] CI (GitHub Actions, macOS runner: `swift test`)

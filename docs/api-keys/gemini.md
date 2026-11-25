@@ -21,14 +21,14 @@ Google Cloud project for you.
 - For more: **Set up billing** on the API keys page, then **Buy credits** on [aistudio.google.com/billing](https://aistudio.google.com/billing)
   (prepay $5–5,000, credits expire after 12 months). At $0 balance every key on that billing account gets `402`.
 
-## 4. Paste it into Subveil
+## 4. Paste it into Babelcap
 
 **Models & Providers → Google Gemini Live Translate → API key** → paste → **Save**. Then pick it as the engine.
 
 ## Good to know
 
 - Gemini translates into **one** target language; two-way translation is not available with this engine.
-- Google closes live sessions every ~10–15 minutes; Subveil reconnects on its own.
+- Google closes live sessions every ~10–15 minutes; Babelcap reconnects on its own.
 
 **Official docs:** [API keys](https://ai.google.dev/gemini-api/docs/api-key) · [Billing](https://ai.google.dev/gemini-api/docs/billing) ·
 [Rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) · [Live API](https://ai.google.dev/gemini-api/docs/live) ·

@@ -32,7 +32,7 @@ final class CatalogSnapshotTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("cat-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)"))
         let engine = CaptionsEngine(settings: settings, store: TranscriptStore())
         for (tab, sel, name) in [(ModelCatalogView.Tab.browse, "whisperkit-large-v3-turbo", "catalog-local"),
                                  (.browse, "soniox", "catalog-cloud"),

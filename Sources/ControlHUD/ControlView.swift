@@ -311,7 +311,7 @@ public struct ControlView: View {
                 Button("Settings…", action: actions.openSettings)
                 Button("Hide panel", action: actions.hidePanel)
                 Divider()
-                Button("Quit Subveil", action: actions.quit)
+                Button("Quit Babelcap", action: actions.quit)
             } label: { Image(systemName: "gearshape") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 28)
             .tip("Settings, hide this panel, quit")

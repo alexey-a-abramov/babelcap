@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Tooltips that also work in Subveil's floating panels.
+/// Tooltips that also work in Babelcap's floating panels.
 ///
 /// System tooltips (`.help`) are not shown for non-activating panels while another app is active — which is how
 /// the control panel and the subtitles are always used. This draws its own little tooltip window near the pointer.

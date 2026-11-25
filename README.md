@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/images/icon.png" width="112" alt="Subveil icon"></p>
+<p align="center"><img src="docs/images/icon.png" width="112" alt="Babelcap icon"></p>
 
-<h1 align="center">Subveil</h1>
+<h1 align="center">Babelcap</h1>
 
 <p align="center">
 Hear any language, read it in yours.<br>
@@ -8,7 +8,7 @@ Live translated subtitles on top of everything on your Mac — videos, calls, me
 </p>
 
 <p align="center">
-  <img src="docs/images/demo-video-translation.jpg" width="820" alt="Subveil translating a Russian-dubbed video into English subtitles in real time">
+  <img src="docs/images/demo-video-translation.jpg" width="820" alt="Babelcap translating a Russian-dubbed video into English subtitles in real time">
   <br><sub>A Russian-dubbed video, translated into English live (shown here in “original + translation” mode).</sub>
 </p>
 
@@ -16,7 +16,7 @@ Live translated subtitles on top of everything on your Mac — videos, calls, me
 
 ## The story
 
-Subveil was dreamed up and mostly built in one day — at the hackathon for the launch of **Claude Fable 5.2**
+Babelcap (working title: Subveil) was dreamed up and mostly built in one day — at the hackathon for the launch of **Claude Fable 5.2**
 in **Tel Aviv on 23 November 2026** — by [Alexey Abramov](https://github.com/alexey-a-abramov), pairing with Claude Code.
 It is now open to everyone.
 
@@ -29,7 +29,7 @@ translator and language has been tested yet — expect rough edges, especially w
 - **Join meetings in a language you don't speak.** Just read along while the others talk.
 - **Meetups and live talks.** Point it at the laptop microphone and read the translation of the speaker.
 - **Everyone speaks their own language.** As long as people share one language for reading (say, English),
-  everyone can talk in whatever they are comfortable with — Subveil translates it for you.
+  everyone can talk in whatever they are comfortable with — Babelcap translates it for you.
 
 ## How it works
 
@@ -58,7 +58,7 @@ Open **Models & Providers** (menu bar, the control panel's gear, or Settings) �
 - **On this Mac, free and offline** — OpenAI Whisper via WhisperKit (tiny → large-v3) or Apple's on-device speech
   (macOS 26) for recognition, and **TranslateGemma / Qwen3 / EuroLLM via MLX** for translation into any of 55 languages
   (Russian and Hebrew included). Words appear while people speak; each sentence is translated as soon as it ends.
-  Downloads resume after a pause or restart, are checked against SHA-256, and live only in Subveil's own folder.
+  Downloads resume after a pause or restart, are checked against SHA-256, and live only in Babelcap's own folder.
 - **Meeting summary** — key points, decisions and action items written on your Mac by a local model.
 - **Speaker colours** and optional **spoken translation** (read aloud, never re-captured).
 - **Test before you switch** — run a short clip (7 languages) through any engine: accuracy (word error rate), how many
@@ -70,9 +70,9 @@ Open **Models & Providers** (menu bar, the control panel's gear, or Settings) �
 Requirements: Apple Silicon Mac with macOS 14.4+, Xcode 26 (to build), a Soniox API key.
 
 ```bash
-git clone https://github.com/alexey-a-abramov/subveil.git
-cd subveil
-scripts/install_app.sh      # builds, signs, installs ~/Applications/Subveil.app and launches it
+git clone https://github.com/alexey-a-abramov/babelcap.git
+cd babelcap
+scripts/install_app.sh      # builds, signs, installs ~/Applications/Babelcap.app and launches it
 ```
 
 1. Paste your Soniox key when asked (it's checked live and kept in the macOS Keychain).
@@ -89,13 +89,14 @@ unless you turn it on. Recording other people may require their consent.
 ## For developers
 
 `swift test` runs the test suite (a local mock Soniox server and a fake model hub, no network or key needed).
-`swift run subveil-bench list | download <id> | test <id>|ready --clip ru --target en` downloads and benchmarks engines from the terminal.
+`swift run babelcap-bench list | download <id> | test <id>|ready --clip ru --target en` downloads and benchmarks engines from the terminal.
 Architecture and conventions: [AGENTS.md](AGENTS.md).
 
 ## Contributing
 
 Contributions are very welcome — bug reports, test results with engines and languages we haven't tried,
-new adapters, UI polish. Open an [issue](https://github.com/alexey-a-abramov/subveil/issues) or a pull request;
+new adapters, UI polish. Open an [issue](https://github.com/alexey-a-abramov/babelcap/issues) or a pull request,
+or write to [babelcap@alexeyabramov.com](mailto:babelcap@alexeyabramov.com);
 [docs/TODO.md](docs/TODO.md) lists what's open and [AGENTS.md](AGENTS.md) explains how the code is laid out.
 
 ## Author and license

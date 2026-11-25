@@ -173,14 +173,14 @@ public final class ModelDownloads {
         Licence:   \(entry.license)\(entry.licenseWarning.map { " — \($0)" } ?? "")
         Languages: \(entry.languages)
         Runtime:   \(entry.runtime)
-        Installed: \(Date().formatted(date: .abbreviated, time: .shortened)) by Subveil
+        Installed: \(Date().formatted(date: .abbreviated, time: .shortened)) by Babelcap
         Size:      \(m.totalBytes.humanBytes) in \(plan.count) files (every file checked against its SHA-256)
 
         Sources:
 
         """
         for spec in entry.downloads { readme += "  - \(spec.role): \(spec.pageURL.absoluteString)\n" }
-        readme += "\nDelete this folder (or use Subveil → Models & Providers → Delete) to remove the model.\n"
+        readme += "\nDelete this folder (or use Babelcap → Models & Providers → Delete) to remove the model.\n"
         try readme.write(to: ModelStorage.folder(for: entry.id).appendingPathComponent("README.txt"), atomically: true, encoding: .utf8)
     }
 
@@ -281,7 +281,7 @@ final class RangeFileDownloader: NSObject, URLSessionDataDelegate, @unchecked Se
         if !FileManager.default.fileExists(atPath: part.path) { FileManager.default.createFile(atPath: part.path, contents: nil) }
         let existing = Int64((try? FileManager.default.attributesOfItem(atPath: part.path)[.size] as? Int) ?? 0)
         var req = URLRequest(url: url)
-        req.setValue("Subveil (macOS model downloader)", forHTTPHeaderField: "User-Agent")
+        req.setValue("Babelcap (macOS model downloader)", forHTTPHeaderField: "User-Agent")
         if existing > 0 { req.setValue("bytes=\(existing)-", forHTTPHeaderField: "Range") }
 
         try await withTaskCancellationHandler {

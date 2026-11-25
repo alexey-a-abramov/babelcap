@@ -2,15 +2,15 @@ import Foundation
 
 /// Where models live: one folder per catalog entry under Application Support — never anywhere else on the system.
 ///
-///     ~/Library/Application Support/Subveil/Models/<entry-id>/
+///     ~/Library/Application Support/Babelcap/Models/<entry-id>/
 ///         README.txt               human-readable: what this model is, where it came from, licence
-///         subveil-model.json       machine-readable manifest (files, sizes, sha256, install date)
+///         babelcap-model.json       machine-readable manifest (files, sizes, sha256, install date)
 ///         <repo files …>
 ///         .partial/                in-progress downloads (resumable)
 public enum ModelStorage {
     public static var root: URL {
         let u = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Subveil/Models", isDirectory: true)
+            .appendingPathComponent("Babelcap/Models", isDirectory: true)
         try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
         return u
     }
@@ -22,7 +22,7 @@ public enum ModelStorage {
         (rootOverride ?? root).appendingPathComponent(id, isDirectory: true)
     }
 
-    public static func manifestURL(for id: String) -> URL { folder(for: id).appendingPathComponent("subveil-model.json") }
+    public static func manifestURL(for id: String) -> URL { folder(for: id).appendingPathComponent("babelcap-model.json") }
 
     public static func isInstalled(_ id: String) -> Bool {
         FileManager.default.fileExists(atPath: manifestURL(for: id).path)

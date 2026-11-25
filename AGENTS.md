@@ -1,8 +1,8 @@
-# Subveil — context for agents
+# Babelcap — context for agents
 
 Native macOS app (Apple Silicon, macOS 14.4+): live captions + translation floating above all windows.
 System audio (Core Audio process tap) and/or microphone → Soniox `stt-rt-v6` (WebSocket) → always-on-top overlay.
-The product was specified as "Live Captions for macOS" (23 Nov 2026); the working product name is **Subveil**.
+The product was specified as "Live Captions for macOS" (23 Nov 2026). Its working title was **Subveil**; since 25 Nov 2026 it is **Babelcap**.
 
 > **How to work in this repo.** The source of truth for progress is [`docs/TODO.md`](docs/TODO.md).
 > Pick a stage → implement → tick the items, update "Status" and "Deviations from the spec" → commit.
@@ -19,7 +19,7 @@ The product was specified as "Live Captions for macOS" (23 Nov 2026); the workin
   Default: everything is translated to English.
 - The API key lives only in the Keychain and is sent as `Authorization: Bearer` — **not** `api_key` in the config.
   It never reaches logs or exported profiles.
-- Audio is never written to disk. Logs (`os.Logger` + `~/Library/Logs/Subveil/trace.log`) never contain transcript text.
+- Audio is never written to disk. Logs (`os.Logger` + `~/Library/Logs/Babelcap/trace.log`) never contain transcript text.
 - On real-time threads (IOProc / engine tap) only copy into the ring buffer: no allocation, no locks, no Swift concurrency.
 - BYOK, no backend. Metal is not needed.
 
@@ -35,13 +35,13 @@ The product was specified as "Live Captions for macOS" (23 Nov 2026); the workin
 | `LocalLLM` | MLX (mlx-swift-lm 3.33): `MLXRunner` (one loaded LLM, stops at end-of-turn), `MLXTranslator` (TranslateGemma prompt or chat) |
 | `CloudEngines` | WebSocket adapters: Gladia, Speechmatics, OpenAI realtime-translate, Gemini Live Translate, ElevenLabs Scribe (+ local translator) |
 | `AzureEngine` | Azure Speech Translation via Microsoft's Speech SDK (binary framework) |
-| `ModelHub` | `ModelCatalog` (all cloud + local engines, prices, URLs, sizes, RAM), `ModelDownloads` (resumable HTTP Range, SHA-256), `ModelStorage` (`~/Library/Application Support/Subveil/Models/<id>`), `EngineFactory`, `BenchmarkRunner` + clips + WER |
+| `ModelHub` | `ModelCatalog` (all cloud + local engines, prices, URLs, sizes, RAM), `ModelDownloads` (resumable HTTP Range, SHA-256), `ModelStorage` (`~/Library/Application Support/Babelcap/Models/<id>`), `EngineFactory`, `BenchmarkRunner` + clips + WER |
 | `CatalogUI` | "Models & Providers" window: browse / compare / benchmark |
-| `SubveilBench` (exec) | `subveil-bench` CLI: list, download, test engines |
+| `BabelcapBench` (exec) | `babelcap-bench` CLI: list, download, test engines |
 | `CaptionsCore` | `CaptionsEngine` — orchestration: source runtimes, sessions, live switching, auto-pause, cost, device events, `LevelProbe` |
 | `Overlay` | `CaptionView` (Captions/Feed/Dual/Split), `CaptionPanel` + `OverlayController` (movable/resizable panel, click-through, shown only while a session runs) |
 | `ControlHUD` | `ControlView` + `ControlPanelController` (capsule, pill, expansion, history) |
-| `Subveil` (executable) | `@main`, `MenuBarExtra`, Dock icon, `AppContext`, `SettingsView`, `OnboardingView`, `HotKeys` (Carbon) |
+| `Babelcap` (executable) | `@main`, `MenuBarExtra`, Dock icon, `AppContext`, `SettingsView`, `OnboardingView`, `HotKeys` (Carbon) |
 
 Differences from the spec: `CaptionsCore` was added so Overlay and HUD do not depend on each other, plus `AppSettings`;
 `SettingsView` lives in the app target (it needs `CaptionView` for the live preview).
@@ -51,17 +51,17 @@ Differences from the spec: `CaptionsCore` was added so Overlay and HUD do not de
 ```bash
 swift build                       # debug build
 swift test                        # 63 tests: token assembly, Soniox models, mock WebSocket server, engine end-to-end, Keychain, settings
-scripts/build_app.sh              # release → build/Subveil.app (signed, hardened runtime)
-scripts/install_app.sh            # build + sign + install to ~/Applications/Subveil.app + launch
+scripts/build_app.sh              # release → build/Babelcap.app (signed, hardened runtime)
+scripts/install_app.sh            # build + sign + install to ~/Applications/Babelcap.app + launch
 scripts/install_app.sh "<identity>"   # use a specific signing identity (e.g. Developer ID)
 scripts/build_app.sh                # xcodebuild: MLX needs its Metal shaders (swift build cannot compile them)
-xcodebuild -scheme subveil-bench -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode -skipPackagePluginValidation -skipMacroValidation build
-.build/xcode/Build/Products/Release/subveil-bench test whisperkit-large-v3-turbo --clip he --translator mlx-translategemma-4b
-swift run subveil-bench list                       # catalog + what is installed
-swift run subveil-bench download whisperkit-large-v3-turbo
-swift run subveil-bench test ready --clip ru --target en   # every ready engine on the Russian clip
+xcodebuild -scheme babelcap-bench -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode -skipPackagePluginValidation -skipMacroValidation build
+.build/xcode/Build/Products/Release/babelcap-bench test whisperkit-large-v3-turbo --clip he --translator mlx-translategemma-4b
+swift run babelcap-bench list                       # catalog + what is installed
+swift run babelcap-bench download whisperkit-large-v3-turbo
+swift run babelcap-bench test ready --clip ru --target en   # every ready engine on the Russian clip
 swift scripts/make_icon.swift && iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns   # regenerate the icon
-tail -f ~/Library/Logs/Subveil/trace.log   # live diagnostics
+tail -f ~/Library/Logs/Babelcap/trace.log   # live diagnostics
 ```
 
 Signing: the build scripts use the first *Apple Development* identity in the keychain, otherwise ad-hoc. A stable identity
@@ -95,5 +95,8 @@ An ad-hoc signature changes with every build and makes macOS ask again.
 - TranslateGemma does not declare `<end_of_turn>` as EOS: generation is stopped by token id in `MLXRunner`.
 - Soniox keys look like `snx_proj_…` (long, with `.`, `_`, `-`); a wrong key gives `401 Incorrect API key provided`.
 - Azure Speech SDK is a binary framework: `build_app.sh` copies it to `Contents/Frameworks`, adds the `@executable_path/../Frameworks`
-  rpath and re-signs it. Ad-hoc builds need `Resources/Subveil-adhoc.entitlements` (`disable-library-validation`), otherwise
+  rpath and re-signs it. Ad-hoc builds need `Resources/Babelcap-adhoc.entitlements` (`disable-library-validation`), otherwise
   dyld fails with "different Team IDs". The Azure credential is stored as `region|key` in the provider's Keychain item.
+- Renamed from Subveil: `LegacyMigration.run()` (app start, bench start) moves `Application Support/Subveil`, `~/.config/subveil`,
+  model manifests and `app.subveil.Subveil` preferences; `KeychainStore` copies `app.subveil.*` items on first read.
+  The bundle id changed, so macOS asks for Microphone / System Audio permission once more. Never remove this migration casually.

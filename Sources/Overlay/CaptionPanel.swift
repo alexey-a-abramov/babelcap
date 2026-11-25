@@ -152,7 +152,7 @@ public final class OverlayController {
         apply()
     }
 
-    private static func name(_ key: String) -> String { "SubveilCaption.\(key)" }
+    private static func name(_ key: String) -> String { "BabelcapCaption.\(key)" }
     private var observers: [String: [NSObjectProtocol]] = [:]
     private var screenObserver: NSObjectProtocol?
 
@@ -172,7 +172,7 @@ public final class OverlayController {
 
     // Own frame storage: the system frame autosave does not restore the size of panels that are not resizable
     // at creation time (and click-through panels are not resizable).
-    static func defaultsKey(_ key: String) -> String { "SubveilCaption.\(key).frame" }
+    static func defaultsKey(_ key: String) -> String { "BabelcapCaption.\(key).frame" }
 
     /// Positions are remembered per monitor setup: laptop alone vs. laptop + HDMI display keep their own places.
     static var screenSignature: String {

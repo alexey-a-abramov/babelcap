@@ -14,7 +14,7 @@ public final class MicCapture: AudioSource, @unchecked Sendable {
     private let voiceProcessing: Bool
     private var engine: AVAudioEngine?
     private let downmixer = Downmixer()
-    private let log = Logger(subsystem: "app.subveil", category: "MicCapture")
+    private let log = Logger(subsystem: "app.babelcap", category: "MicCapture")
 
     public init(deviceUID: String?, voiceProcessing: Bool) {
         self.deviceUID = deviceUID

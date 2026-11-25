@@ -16,7 +16,7 @@ Your key is on the [dashboard home page](https://www.assemblyai.com/dashboard/ho
 
 After the free credit you pay as you go — add a card in the dashboard's billing section.
 
-## 4. Paste it into Subveil
+## 4. Paste it into Babelcap
 
 **Models & Providers → AssemblyAI Streaming → API key** → paste → **Save**.
 

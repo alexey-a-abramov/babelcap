@@ -23,7 +23,7 @@ actor AsyncLock {
 public actor WhisperKitPool {
     private let gate = AsyncLock()
     /// GPU by default: the Neural Engine needs a one-time compile per model that can take minutes on first load.
-    nonisolated(unsafe) public static var useNeuralEngine = ProcessInfo.processInfo.environment["SUBVEIL_WHISPER_ANE"] != nil
+    nonisolated(unsafe) public static var useNeuralEngine = ProcessInfo.processInfo.environment["BABELCAP_WHISPER_ANE"] != nil
 
     /// Serialised inference on the shared model.
     public func transcribe(_ pipe: WhisperKit, audio: [Float], options: DecodingOptions) async throws -> [TranscriptionResult] {
@@ -336,7 +336,7 @@ public actor WhisperKitStream: SpeechStream {
     }
 }
 
-/// Direct single-call access for diagnostics (subveil-bench raw).
+/// Direct single-call access for diagnostics (babelcap-bench raw).
 public enum WhisperKitDiagnostics {
     public static func run(folder: URL, audio: [Float], translate: Bool, language: String?, prefill: Bool = true) async throws -> String {
         let pipe = try await WhisperKitPool.shared.pipe(modelFolder: folder)

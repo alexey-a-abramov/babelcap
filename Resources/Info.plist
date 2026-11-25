@@ -3,15 +3,15 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Subveil</string>
+	<string>Babelcap</string>
 	<key>CFBundleExecutable</key>
-	<string>Subveil</string>
+	<string>Babelcap</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>app.subveil.Subveil</string>
+	<string>app.babelcap.Babelcap</string>
 	<key>CFBundleName</key>
-	<string>Subveil</string>
+	<string>Babelcap</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -23,10 +23,10 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Subveil transcribes system audio (calls, videos) into live captions.</string>
+	<string>Babelcap transcribes system audio (calls, videos) into live captions.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Subveil transcribes your voice from the microphone into live captions.</string>
+	<string>Babelcap transcribes your voice from the microphone into live captions.</string>
 </dict>
 </plist>

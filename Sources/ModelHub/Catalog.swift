@@ -1,6 +1,6 @@
 import Foundation
 
-/// The speech engines Subveil knows about — cloud APIs and models that run on this Mac.
+/// The speech engines Babelcap knows about — cloud APIs and models that run on this Mac.
 ///
 /// Source: "Real-Time Transcription + Translation: Model Catalog" research snapshot (Nov 2026). Prices are public
 /// pay-as-you-go rates and change; every entry links to the provider's own pricing page.
@@ -101,7 +101,7 @@ public enum ModelCatalog {
     public static let defaultProviderID = "soniox"
 
     /// Where the key guides are published. The files live in docs/api-keys/ of this repository.
-    public static let keyGuidesBase = "https://github.com/alexey-a-abramov/subveil/blob/main/docs/api-keys/"
+    public static let keyGuidesBase = "https://github.com/alexey-a-abramov/babelcap/blob/main/docs/api-keys/"
     public static let keyGuidesIndex = URL(string: keyGuidesBase + "README.md")!
     /// Catalog id → guide file name. Every cloud entry must have one (checked by a test).
     public static let keyGuides: [String: String] = [
@@ -257,7 +257,7 @@ public enum ModelCatalog {
             docsURL: "https://learn.microsoft.com/azure/ai-services/speech-service/speech-translation", license: "Proprietary"),
         CatalogEntry(
             id: "elevenlabs-scribe", name: "ElevenLabs Scribe v3 Live", vendor: "ElevenLabs", kind: .cloud,
-            summary: "Low-latency live transcription in the cloud; Subveil translates each line on this Mac.",
+            summary: "Low-latency live transcription in the cloud; Babelcap translates each line on this Mac.",
             outputs: "Transcript (+ translation by your local translator)", languages: "90+", translation: "Via TranslateGemma / Apple on this Mac", realtime: "Yes", runtime: "WebSocket",
             pricePerHour: 0.22, priceText: "$0.22/h", keyURL: "https://elevenlabs.io/app/settings/api-keys",
             pricingURL: "https://elevenlabs.io/pricing/api", docsURL: "https://elevenlabs.io/docs", license: "Proprietary", engine: .elevenLabs,

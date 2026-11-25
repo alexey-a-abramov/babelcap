@@ -12,7 +12,7 @@ final class OverlayPanelTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         for k in ["main", "system", "mic"] { UserDefaults.standard.removeObject(forKey: OverlayController.defaultsKey(k)) }
 
-        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)"))
         settings.profile.sources = .both
         let overlay = OverlayController(store: TranscriptStore(), settings: settings)
         overlay.start()

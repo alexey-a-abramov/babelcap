@@ -313,7 +313,7 @@ private struct SessionTab: View {
                     if settings.profile.session.exportFolder != nil { Button("Reset") { settings.profile.session.exportFolder = nil } }
                 }
                 Button("Reveal history folder") { NSWorkspace.shared.open(AppPaths.historyDir) }
-                Text("Audio is never written to disk. Transcripts live in ~/Library/Application Support/Subveil/.")
+                Text("Audio is never written to disk. Transcripts live in ~/Library/Application Support/Babelcap/.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped)
@@ -339,7 +339,7 @@ private struct ProfilesTab: View {
             Section("Import / export (JSON — never contains the API key)") {
                 HStack {
                     Button("Export…") {
-                        let p = NSSavePanel(); p.nameFieldStringValue = "\(settings.profile.name).subveil.json"
+                        let p = NSSavePanel(); p.nameFieldStringValue = "\(settings.profile.name).babelcap.json"
                         if p.runModal() == .OK, let u = p.url { do { try settings.exportActiveProfile().write(to: u) } catch { self.error = error.localizedDescription } }
                     }
                     Button("Import…") {

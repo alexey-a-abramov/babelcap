@@ -10,7 +10,7 @@ final class HistoryTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hist-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)"))
         XCTAssertFalse(settings.profile.session.saveHistory, "no transcript history by default")
 
         let store = TranscriptStore()

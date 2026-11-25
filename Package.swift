@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "Subveil",
+    name: "Babelcap",
     platforms: [.macOS("14.4")],
     products: [
-        .executable(name: "Subveil", targets: ["Subveil"]),
-        .executable(name: "subveil-bench", targets: ["SubveilBench"]),
+        .executable(name: "Babelcap", targets: ["Babelcap"]),
+        .executable(name: "babelcap-bench", targets: ["BabelcapBench"]),
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", exact: "1.1.1"),
@@ -39,10 +39,10 @@ let package = Package(
         .target(name: "ControlHUD", dependencies: ["CaptionsCore", "AppSettings", "Transcript", "AudioCapture", "SonioxClient", "SharedUI", "ModelHub"]),
         .target(name: "CatalogUI", dependencies: ["AppSettings", "CaptionsCore", "ModelHub", "SonioxClient", "SharedUI", "LocalEngines", "LocalLLM"]),
         .executableTarget(
-            name: "Subveil",
+            name: "Babelcap",
             dependencies: ["AudioCapture", "SonioxClient", "Transcript", "AppSettings", "CaptionsCore", "Overlay", "ControlHUD", "ModelHub", "CatalogUI", "LocalEngines"]
         ),
-        .executableTarget(name: "SubveilBench", dependencies: ["ModelHub", "LocalEngines", "SonioxClient"]),
+        .executableTarget(name: "BabelcapBench", dependencies: ["ModelHub", "LocalEngines", "SonioxClient"]),
         .testTarget(name: "TranscriptTests", dependencies: ["Transcript", "SonioxClient"]),
         .testTarget(
             name: "SonioxClientTests",

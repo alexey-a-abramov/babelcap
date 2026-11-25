@@ -1,6 +1,6 @@
 # Soniox API key
 
-Soniox is Subveil's default engine: real-time transcription and translation in one stream. ≈ $0.12/h, ≈ $0.18/h with translation.
+Soniox is Babelcap's default engine: real-time transcription and translation in one stream. ≈ $0.12/h, ≈ $0.18/h with translation.
 
 ## 1. Create an account
 
@@ -17,16 +17,16 @@ Sign up at [console.soniox.com/signup](https://console.soniox.com/signup).
 1. Go to **Organization → Billing** ([link](https://console.soniox.com/org/billing/overview/)) and add funds.
 2. Optional but recommended: set a monthly cap in **Organization → Limits** ([link](https://console.soniox.com/org/limits/)).
 
-## 4. Paste it into Subveil
+## 4. Paste it into Babelcap
 
 **Settings → Account** or **Models & Providers → Soniox → API key** → paste → **Verify & save**.
-Subveil checks the key with Soniox before saving it.
+Babelcap checks the key with Soniox before saving it.
 
 ## Good to know
 
 - Keys belong to a **project**. Deleting the project disables all its keys.
 - Create the project in the **default (US) region**. A project's region can't be changed later, and an EU-region key
-  only works against `api.eu.soniox.com`, which Subveil does not call yet.
+  only works against `api.eu.soniox.com`, which Babelcap does not call yet.
 - Billing is by session time. Auto-pause on silence (Settings → Session) keeps it down.
 - Limits take a short while to apply; usage over the limit inside that window is still billed.
 

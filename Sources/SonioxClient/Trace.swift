@@ -1,18 +1,18 @@
 import Foundation
 import os
 
-/// Diagnostic trace → `~/Library/Logs/Subveil/trace.log` (+ unified logging, subsystem `app.subveil`).
+/// Diagnostic trace → `~/Library/Logs/Babelcap/trace.log` (+ unified logging, subsystem `app.babelcap`).
 /// Rule: NEVER log the API key or transcript text — only counts, states, status codes, timings.
 public enum Trace {
     public static let fileURL: URL = {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Logs/Subveil", isDirectory: true)
+            .appendingPathComponent("Logs/Babelcap", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("trace.log")
     }()
 
-    private static let queue = DispatchQueue(label: "subveil.trace")
-    private static let logger = Logger(subsystem: "app.subveil", category: "trace")
+    private static let queue = DispatchQueue(label: "babelcap.trace")
+    private static let logger = Logger(subsystem: "app.babelcap", category: "trace")
     nonisolated(unsafe) private static var formatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f
     }()

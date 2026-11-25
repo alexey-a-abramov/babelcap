@@ -1,7 +1,7 @@
 # Azure Speech key and region
 
 Azure Speech Translation via Microsoft's Speech SDK: transcript plus translation. $2.50/h; the free F0 tier gives 5 hours a month.
-Subveil needs **two things**: a key **and** the resource's region (e.g. `westeurope`).
+Babelcap needs **two things**: a key **and** the resource's region (e.g. `westeurope`).
 
 ## 1. Create an Azure account
 
@@ -14,7 +14,7 @@ Sign up at [azure.microsoft.com/free](https://azure.microsoft.com/free/). New cu
    [create one](https://portal.azure.com/#create/Microsoft.CognitiveServicesAIFoundry).)
 2. Fill in:
    - **Subscription** — yours.
-   - **Resource group** — create one, e.g. `subveil`.
+   - **Resource group** — create one, e.g. `babelcap`.
    - **Region** — one close to you that supports speech translation, e.g. **West Europe** or **East US**
      ([region list](https://learn.microsoft.com/azure/ai-services/speech-service/regions), "Speech translation" tab).
    - **Name** — anything unique.
@@ -26,7 +26,7 @@ Sign up at [azure.microsoft.com/free](https://azure.microsoft.com/free/). New cu
 In the resource open **Resource Management → Keys and Endpoint**. Copy **KEY 1** and note **Location/Region**
 (the short form, e.g. `westeurope`, `eastus` — lowercase, no spaces).
 
-## 4. Paste them into Subveil
+## 4. Paste them into Babelcap
 
 **Models & Providers → Azure Speech Translation → API key**: type the region in **Region**, paste KEY 1 → **Save**.
 Then pick Azure as the engine.

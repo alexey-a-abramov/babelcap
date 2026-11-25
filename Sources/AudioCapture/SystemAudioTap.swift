@@ -18,8 +18,8 @@ public final class SystemAudioTap: AudioSource, @unchecked Sendable {
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
     private var procID: AudioDeviceIOProcID?
-    private let queue = DispatchQueue(label: "subveil.systemtap", qos: .userInteractive)
-    private let log = Logger(subsystem: "app.subveil", category: "SystemAudioTap")
+    private let queue = DispatchQueue(label: "babelcap.systemtap", qos: .userInteractive)
+    private let log = Logger(subsystem: "app.babelcap", category: "SystemAudioTap")
 
     public init(scope: Scope) { self.scope = scope }
     deinit { stop() }
@@ -44,7 +44,7 @@ public final class SystemAudioTap: AudioSource, @unchecked Sendable {
         }
         let tapUUID = UUID()
         desc.uuid = tapUUID
-        desc.name = "Subveil tap"
+        desc.name = "Babelcap tap"
         desc.isPrivate = true
         desc.muteBehavior = .unmuted
 
@@ -57,7 +57,7 @@ public final class SystemAudioTap: AudioSource, @unchecked Sendable {
 
         let aggUID = UUID().uuidString
         let dict: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "Subveil aggregate",
+            kAudioAggregateDeviceNameKey: "Babelcap aggregate",
             kAudioAggregateDeviceUIDKey: aggUID,
             kAudioAggregateDeviceMainSubDeviceKey: outputUID,
             kAudioAggregateDeviceIsPrivateKey: true,

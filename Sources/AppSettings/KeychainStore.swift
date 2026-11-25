@@ -3,10 +3,10 @@ import Security
 import SonioxClient
 
 public struct KeychainStore: Sendable {
-    public static let standard = KeychainStore(service: "app.subveil.soniox")
+    public static let standard = KeychainStore(service: "app.babelcap.soniox")
 
-    /// One Keychain item per cloud provider ("app.subveil.<provider id>"; Soniox keeps its original item).
-    public static func forProvider(_ id: String) -> KeychainStore { KeychainStore(service: "app.subveil.\(id)") }
+    /// One Keychain item per cloud provider ("app.babelcap.<provider id>"; Soniox keeps its original item).
+    public static func forProvider(_ id: String) -> KeychainStore { KeychainStore(service: "app.babelcap.\(id)") }
 
     public enum ReadResult: Sendable, Equatable {
         case found(String)
@@ -16,6 +16,12 @@ public struct KeychainStore: Sendable {
 
     public let service: String
     private let account = "api-key"
+
+    /// The item the app used under its working title (`app.subveil.*`); read once and copied to `service`.
+    var legacyService: String? {
+        service.hasPrefix("app.babelcap.") ? "app.subveil." + service.dropFirst("app.babelcap.".count) : nil
+    }
+    private var legacy: KeychainStore? { legacyService.map { KeychainStore(service: $0) } }
 
     public init(service: String) { self.service = service }
 
@@ -35,7 +41,7 @@ public struct KeychainStore: Sendable {
         var out: CFTypeRef?
         let st = SecItemCopyMatching(q as CFDictionary, &out)
         Trace.log("keychain", "exists: status \(st)")
-        return st == errSecSuccess
+        return st == errSecSuccess || (legacy?.exists() ?? false)
     }
 
     /// Reading the secret may block on a system "allow access" dialog — call off the main thread.
@@ -55,6 +61,11 @@ public struct KeychainStore: Sendable {
             return .found(s)
         case errSecItemNotFound:
             Trace.log("keychain", "read: not found (service \(service))")
+            if let legacy, case let .found(k) = legacy.read() {
+                Trace.log("keychain", "migrated key from \(legacy.service)")
+                save(k)
+                return .found(k)
+            }
             return .notFound
         default:
             Trace.log("keychain", "read: FAILED status \(st) — \(Self.message(st))")
@@ -79,6 +90,7 @@ public struct KeychainStore: Sendable {
     }
 
     public func delete() {
+        legacy?.delete()
         let st = SecItemDelete(base as CFDictionary)
         Trace.log("keychain", "delete: status \(st)")
     }

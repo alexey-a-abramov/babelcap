@@ -19,10 +19,10 @@ Purchased credits expire after one year.
 ## 3. Create a key
 
 1. Open **API keys** ([link](https://platform.openai.com/api-keys)) → **Create new secret key**.
-2. Name it `Subveil`, keep the default project → **Create**.
+2. Name it `Babelcap`, keep the default project → **Create**.
 3. **Copy it now** — OpenAI shows the full key only once. Lost it? Create a new one.
 
-## 4. Paste it into Subveil
+## 4. Paste it into Babelcap
 
 **Models & Providers → OpenAI gpt-realtime-translate → API key** → paste → **Save**. Then pick it as the engine.
 

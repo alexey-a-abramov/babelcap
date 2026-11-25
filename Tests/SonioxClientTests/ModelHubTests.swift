@@ -51,7 +51,7 @@ final class CatalogTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: docs.appendingPathComponent("README.md").path))
         for e in ModelCatalog.all where e.needsAPIKey {
             let url = try XCTUnwrap(e.keyGuideURL, "\(e.id) has no key guide")
-            XCTAssertTrue(url.absoluteString.hasPrefix("https://github.com/alexey-a-abramov/subveil/blob/main/docs/api-keys/"))
+            XCTAssertTrue(url.absoluteString.hasPrefix("https://github.com/alexey-a-abramov/babelcap/blob/main/docs/api-keys/"))
             XCTAssertTrue(FileManager.default.fileExists(atPath: docs.appendingPathComponent(url.lastPathComponent).path),
                           "missing docs/api-keys/\(url.lastPathComponent)")
         }

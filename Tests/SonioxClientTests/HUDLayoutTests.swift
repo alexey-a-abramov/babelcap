@@ -45,7 +45,7 @@ final class HUDLayoutTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hud-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)"))
         let store = TranscriptStore()
         let engine = CaptionsEngine(settings: settings, store: store)
         let view = ControlView(settings: settings, engine: engine, store: store, hud: HUDState(), overlay: ControlOverlayInfo(),
@@ -71,7 +71,7 @@ final class HUDLayoutTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("cap-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.subveil.tests.\(UUID().uuidString)"))
+        let settings = SettingsStore(directory: dir, keychain: KeychainStore(service: "app.babelcap.tests.\(UUID().uuidString)"))
         var many = CaptionSamples.segments
         for i in 0..<8 { many.insert(Segment(id: 100 + i, source: .system, language: "ru", original: "Строка \(i)", translation: "Older line \(i)", isClosed: true), at: 0) }
         let view = CaptionView(store: TranscriptStore(), settings: settings, state: OverlayState(), sample: many)
